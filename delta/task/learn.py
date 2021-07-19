@@ -1,43 +1,50 @@
 import inspect
 import json
+import logging
 from io import BytesIO
-from typing import Callable, List, Dict, Any, BinaryIO, Iterable, Optional
+from typing import Callable, List, Dict, Any, BinaryIO, Optional
 from zipfile import ZipFile
 
 import dill
 import torch
 
+from .task import Task
 from ..node import Node
 
 
-class LearningTask(object):
+class LearningTask(Task):
     def __init__(self, name: str,
-                 members: List[str],
+                 dataset: str,
                  preprocess: Callable,
                  train_step: Callable,
-                 dataloader_cfg: Dict[str, Any],
+                 dataloader: Dict[str, Any],
                  total_epoch: int,
+                 members: List[str] = None,
                  secure_level: int = 0,
-                 merge_round: int = 0,
+                 merge_iter: int = 0,
                  merge_epoch: int = 1
                  ):
         super(LearningTask, self).__init__()
+        self._logger = logging.getLogger(__name__)
         self._name = name
+        self._dataset = dataset
         self._members = members
+        if self._members is None:
+            self._members = []
 
         self._preprocess = preprocess
         self._train_step = train_step
 
-        self._dataloader_cfg = dataloader_cfg
+        self._dataloader = dataloader
 
         self._total_epoch = total_epoch
 
         self._secure_level = secure_level
-        self._merge_round = 0
+        self._merge_iter = 0
         self._merge_epoch = 0
 
-        if merge_round > 0:
-            self._merge_round = merge_round
+        if merge_iter > 0:
+            self._merge_iter = merge_iter
         elif merge_epoch > 0:
             self._merge_epoch = merge_epoch
         else:
@@ -48,12 +55,17 @@ class LearningTask(object):
 
         self._inspect_train_step()
 
-        self._dataloader: Optional[Iterable] = None
         self._state = {}
 
         self._init_state()
 
-        self._node: Optional[Node] = None
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def members(self) -> Optional[List[str]]:
+        return self._members
 
     def _inspect_train_step(self):
         sig = inspect.signature(self._train_step)
@@ -76,18 +88,19 @@ class LearningTask(object):
         self._train_step.__defaults__ = None
 
     def _init_state(self):
-        self._state["curr_iters"] = 0
-        self._state["curr_epochs"] = 0
+        self._state["iteration"] = 0
+        self._state["epoch"] = 0
         self._state["merge_count"] = 0
 
     def dumps_cfg(self) -> bytes:
         cfg = {
             "name": self._name,
+            "dataset": self._dataset,
             "members": self._members,
-            "dataloader": self._dataloader_cfg,
+            "dataloader": self._dataloader,
             "total_epoch": self._total_epoch,
             "secure_level": self._secure_level,
-            "merge_round": self._merge_round,
+            "merge_iter": self._merge_iter,
             "merge_epoch": self._merge_epoch,
         }
         optimizers_cfg = self._optimizers_cfg()
@@ -186,15 +199,9 @@ class LearningTask(object):
                 train = dill.load(f)
 
             obj = LearningTask(
-                name=cfg["name"],
-                members=cfg["members"],
                 preprocess=preprocess,
                 train_step=train,
-                dataloader_cfg=cfg["dataloader"],
-                total_epoch=cfg["total_epoch"],
-                secure_level=cfg["secure_level"],
-                merge_round=cfg["merge_round"],
-                merge_epoch=cfg["merge_epoch"]
+                **cfg
             )
             return obj
 
@@ -203,22 +210,24 @@ class LearningTask(object):
         with BytesIO(data) as f:
             return cls.load_cfg(f)
 
-    def dumps_state_dict(self) -> bytes:
+    def dumps_weight(self) -> bytes:
         models = {name: model.state_dict() for name, model in self._models.items()}
         optimizers = {name: opt.state_dict() for name, opt in self._optimizers.items()}
         state_dict = {
             "models": models,
             "optimizers": optimizers,
         }
+        self._logger.info("dump weight")
+        self._logger.debug(state_dict)
 
         with BytesIO() as f:
             torch.save(state_dict, f)
             return f.getvalue()
 
-    def dump_state_dict(self, file: BinaryIO):
-        file.write(self.dumps_state_dict())
+    def dump_weight(self, file: BinaryIO):
+        file.write(self.dumps_weight())
 
-    def load_state_dict(self, file: BinaryIO):
+    def load_weight(self, file: BinaryIO):
         state_dict = torch.load(file)
         models = state_dict["models"]
         optimizers = state_dict["optimizers"]
@@ -229,47 +238,59 @@ class LearningTask(object):
         for name, state in optimizers.items():
             self._optimizers[name].load_state_dict(state)
 
-    def loads_state_dict(self, data: bytes):
+    def loads_weight(self, data: bytes):
         with BytesIO(data) as f:
-            self.load_state_dict(f)
+            self.load_weight(f)
+
+    def loads_state(self, data: bytes):
+        self._state = json.loads(data)
 
     def load_state(self, file: BinaryIO):
         self._state = json.load(file)
 
+    def dumps_state(self) -> bytes:
+        return json.dumps(self._state).encode("utf-8")
+
     def dump_state(self, file: BinaryIO):
+        self._logger.info("dump state")
+        self._logger.debug(self._state)
         json.dump(self._state, file)
 
-    def set_node(self, node: Node):
-        self._node = node
-
-    def _setup_dataloader(self):
-        dataloader = self._node.get_dataloader(self._dataloader_cfg, self._preprocess)
-        self._dataloader = dataloader
-
-    def _should_merge(self, iteration: int, epoch: int) -> bool:
-        if self._merge_round > 0 and iteration % self._merge_round == 0:
+    @property
+    def _should_merge(self) -> bool:
+        if self._merge_iter > 0 and self._state["iteration"] % self._merge_iter == 0:
             return True
-        elif self._merge_epoch > 0 and epoch % self._merge_epoch == 0:
+        elif self._merge_epoch > 0 and self._state["epoch"] % self._merge_epoch == 0:
             return True
         return False
 
-    def run(self):
-        if self._dataloader is None:
-            self._setup_dataloader()
+    def run(self, node: Node):
+        # initial dataloader
+        dataloader = node.new_dataloader(self._dataset, self._dataloader, self._preprocess)
+        # initial state
+        init_state = node.download_state(self.id)
+        if init_state:
+            self.loads_state(init_state)
+        # initial weight
+        init_weight = node.download_weight(self.id)
+        if init_weight:
+            self.loads_weight(init_weight)
 
-        self._node.load_state(self)
-
-        iteration = self._state["curr_iters"]
-        epoch = self._state["curr_epochs"]
-        while epoch < self._total_epoch:
-            for batch in self._dataloader:
+        while self._state["epoch"] < self._total_epoch:
+            for batch in dataloader:
                 self._train_step(batch, **self._models, **self._optimizers)
-                iteration += 1
-                if self._should_merge(iteration, epoch):
-                    self._node.merge_weight(self)
-                self._state["curr_iters"] = iteration
-            epoch += 1
-            if self._should_merge(iteration, epoch):
-                self._node.merge_weight(self)
-            self._state["curr_epochs"] = epoch
-
+                self._state["iteration"] += 1
+                if self._should_merge:
+                    self._logger.info(f"iteration {self._state['iteration']}, start merge")
+                    # merge and update weight
+                    node.upload_state(self.id, self.dumps_state())
+                    node.upload_weight(self.id, self.dumps_weight())
+                    self.loads_weight(node.download_weight(self.id))
+            self._state["epoch"] += 1
+            # check merge iter == 0 to avoid repeated merge
+            if self._merge_iter == 0 and self._should_merge:
+                self._logger.info(f"epoch {self._state['epoch']}, start merge")
+                # merge and update weight
+                node.upload_state(self.id, self.dumps_state())
+                node.upload_weight(self.id, self.dumps_weight())
+                self.loads_weight(node.download_weight())

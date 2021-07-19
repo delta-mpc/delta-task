@@ -1,18 +1,24 @@
-from typing import Dict, Any, Iterable, Callable
+from abc import ABC, abstractmethod
+from typing import Iterable, Dict, Any, Callable, Optional
 
 
-class Node(object):
-    def __init__(self):
+class Node(ABC):
+    @abstractmethod
+    def new_dataloader(self, dataset: str, dataloader: Dict[str, Any], preprocess: Callable) -> Iterable:
         pass
 
-    def get_dataloader(self, cfg: Dict[str, Any], preprocess: Callable) -> Iterable:
+    @abstractmethod
+    def download_state(self, task_id: int) -> Optional[bytes]:
         pass
 
-    def load_state(self, task):
+    @abstractmethod
+    def upload_state(self, task_id: int, data: bytes):
         pass
 
-    def dump_state(self, task):
+    @abstractmethod
+    def download_weight(self, task_id: int) -> Optional[bytes]:
         pass
 
-    def merge_weight(self, task):
+    @abstractmethod
+    def upload_weight(self, task_id: int, data: bytes):
         pass
