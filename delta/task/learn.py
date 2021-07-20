@@ -203,6 +203,8 @@ class LearningTask(Task):
                 train_step=train,
                 **cfg
             )
+            obj._models = models
+            obj._optimizers = optimizers
             return obj
 
     @classmethod
@@ -276,8 +278,11 @@ class LearningTask(Task):
         if init_weight:
             self.loads_weight(init_weight)
 
+        self._logger.info(f"train start from epoch {self._state['epoch']} iteration {self._state['iteration']}")
         while self._state["epoch"] < self._total_epoch:
+            self._logger.info(f"epoch {self._state['epoch']}")
             for batch in dataloader:
+                self._logger.info(f"iteration {self._state['iteration']}")
                 self._train_step(batch, **self._models, **self._optimizers)
                 self._state["iteration"] += 1
                 if self._should_merge:
@@ -293,4 +298,4 @@ class LearningTask(Task):
                 # merge and update weight
                 node.upload_state(self.id, self.dumps_state())
                 node.upload_weight(self.id, self.dumps_weight())
-                self.loads_weight(node.download_weight())
+                self.loads_weight(node.download_weight(self.id))
