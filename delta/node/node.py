@@ -20,5 +20,5 @@ class Node(ABC):
         pass
 
     @abstractmethod
-    def upload_weight(self, task_id: int, data: bytes):
+    def upload_result(self, task_id: int, data: bytes):
         pass

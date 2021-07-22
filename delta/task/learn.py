@@ -2,28 +2,31 @@ import inspect
 import json
 import logging
 from io import BytesIO
-from typing import Callable, List, Dict, Any, BinaryIO, Optional
+from typing import Any, BinaryIO, Callable, Dict, List, Optional
 from zipfile import ZipFile
 
 import dill
 import torch
 
-from .task import Task
 from ..node import Node
+from .task import Task
 
 
 class LearningTask(Task):
-    def __init__(self, name: str,
-                 dataset: str,
-                 preprocess: Callable,
-                 train_step: Callable,
-                 dataloader: Dict[str, Any],
-                 total_epoch: int,
-                 members: List[str] = None,
-                 secure_level: int = 0,
-                 merge_iter: int = 0,
-                 merge_epoch: int = 1
-                 ):
+    def __init__(
+        self,
+        name: str,
+        dataset: str,
+        preprocess: Callable,
+        train_step: Callable,
+        dataloader: Dict[str, Any],
+        total_epoch: int,
+        members: List[str] = None,
+        secure_level: int = 0,
+        algorithm: str = "merge_weight",
+        merge_iter: int = 0,
+        merge_epoch: int = 1,
+    ):
         super(LearningTask, self).__init__()
         self._logger = logging.getLogger(__name__)
         self._name = name
@@ -40,6 +43,7 @@ class LearningTask(Task):
         self._total_epoch = total_epoch
 
         self._secure_level = secure_level
+        self._algorithm = algorithm
         self._merge_iter = 0
         self._merge_epoch = 0
 
@@ -64,6 +68,18 @@ class LearningTask(Task):
         return self._name
 
     @property
+    def type(self) -> str:
+        return "learn"
+
+    @property
+    def algorithm(self) -> str:
+        return self._algorithm
+
+    @property
+    def secure_level(self) -> int:
+        return self._secure_level
+
+    @property
     def members(self) -> Optional[List[str]]:
         return self._members
 
@@ -75,7 +91,7 @@ class LearningTask(Task):
             if param.default is not inspect.Parameter.empty:
                 val = param.default
                 if isinstance(val, torch.nn.Module):
-                    self._models[name] = val
+                    self._models[name] = torch.jit.script(val)
                 elif isinstance(val, torch.optim.Optimizer):
                     self._optimizers[name] = val
                 else:
@@ -100,6 +116,7 @@ class LearningTask(Task):
             "dataloader": self._dataloader,
             "total_epoch": self._total_epoch,
             "secure_level": self._secure_level,
+            "algorithm": self._algorithm,
             "merge_iter": self._merge_iter,
             "merge_epoch": self._merge_epoch,
         }
@@ -107,6 +124,7 @@ class LearningTask(Task):
 
         with BytesIO() as file:
             with ZipFile(file, mode="w") as f:
+                f.writestr("type", self.type.encode("utf-8"))
                 f.writestr("cfg", json.dumps(cfg))
 
                 for name, model in self._models.items():
@@ -151,35 +169,35 @@ class LearningTask(Task):
                 "type": opt_type,
                 "param_names": opt_param_names,
                 "state_dict": optimizer.state_dict(),
-                "defaults": optimizer.defaults
+                "defaults": optimizer.defaults,
             }
 
         return cfg
 
     @classmethod
-    def load_cfg(cls, file: BinaryIO) -> 'LearningTask':
+    def load_cfg(cls, file: BinaryIO) -> "LearningTask":
         with ZipFile(file, mode="r") as zip_f:
             names = zip_f.namelist()
-            model_files = [name for name in names if name.startswith("models")]
-            optimizer_files = [name for name in names if name.startswith("optimizers")]
+            model_files = [name for name in names if name.startswith("models/")]
+            optimizer_files = [name for name in names if name.startswith("optimizers/")]
 
             with zip_f.open("cfg", mode="r") as f:
                 cfg = json.load(f)
 
             models = {}
             param_lookup = {}
-            for file in model_files:
-                model_name = file.split("/")[-1]
-                with zip_f.open(file, mode="r") as f:
+            for filename in model_files:
+                model_name = filename.split("/")[-1]
+                with zip_f.open(filename, mode="r") as f:
                     model = torch.jit.load(f)
                     models[model_name] = model
                     for name, param in model.named_parameters():
-                        param_lookup[model_name + '.' + name] = param
+                        param_lookup[model_name + "." + name] = param
 
             optimizers = {}
-            for file in optimizer_files:
-                opt_name = file.split("/")[-1]
-                with zip_f.open(file, mode="r") as f:
+            for filename in optimizer_files:
+                opt_name = filename.split("/")[-1]
+                with zip_f.open(filename, mode="r") as f:
                     opt_cfg = json.load(f)
                     opt_type = opt_cfg["type"]
                     param_names = opt_cfg["param_names"]
@@ -187,7 +205,9 @@ class LearningTask(Task):
                     opt_defaults = opt_cfg["defaults"]
                     params = []
                     for param_group in param_names:
-                        params.append({"params": [param_lookup[name] for name in param_group]})
+                        params.append(
+                            {"params": [param_lookup[name] for name in param_group]}
+                        )
                     optimizer = getattr(torch.optim, opt_type)(params, **opt_defaults)
                     optimizer.load_state_dict(state_dict)
                     optimizers[opt_name] = optimizer
@@ -198,17 +218,13 @@ class LearningTask(Task):
             with zip_f.open("train", mode="r") as f:
                 train = dill.load(f)
 
-            obj = LearningTask(
-                preprocess=preprocess,
-                train_step=train,
-                **cfg
-            )
+            obj = LearningTask(preprocess=preprocess, train_step=train, **cfg)
             obj._models = models
             obj._optimizers = optimizers
             return obj
 
     @classmethod
-    def loads_cfg(cls, data: bytes) -> 'LearningTask':
+    def loads_cfg(cls, data: bytes) -> "LearningTask":
         with BytesIO(data) as f:
             return cls.load_cfg(f)
 
@@ -256,7 +272,7 @@ class LearningTask(Task):
     def dump_state(self, file: BinaryIO):
         self._logger.info("dump state")
         self._logger.debug(self._state)
-        json.dump(self._state, file)
+        file.write(json.dumps(self._state).encode("utf-8"))
 
     @property
     def _should_merge(self) -> bool:
@@ -268,7 +284,9 @@ class LearningTask(Task):
 
     def run(self, node: Node):
         # initial dataloader
-        dataloader = node.new_dataloader(self._dataset, self._dataloader, self._preprocess)
+        dataloader = node.new_dataloader(
+            self._dataset, self._dataloader, self._preprocess
+        )
         # initial state
         init_state = node.download_state(self.id)
         if init_state:
@@ -278,7 +296,9 @@ class LearningTask(Task):
         if init_weight:
             self.loads_weight(init_weight)
 
-        self._logger.info(f"train start from epoch {self._state['epoch']} iteration {self._state['iteration']}")
+        self._logger.info(
+            f"train start from epoch {self._state['epoch']} iteration {self._state['iteration']}"
+        )
         while self._state["epoch"] < self._total_epoch:
             self._logger.info(f"epoch {self._state['epoch']}")
             for batch in dataloader:
@@ -286,16 +306,22 @@ class LearningTask(Task):
                 self._train_step(batch, **self._models, **self._optimizers)
                 self._state["iteration"] += 1
                 if self._should_merge:
-                    self._logger.info(f"iteration {self._state['iteration']}, start merge")
+                    self._logger.info(
+                        f"iteration {self._state['iteration']}, start merge"
+                    )
                     # merge and update weight
                     node.upload_state(self.id, self.dumps_state())
-                    node.upload_weight(self.id, self.dumps_weight())
-                    self.loads_weight(node.download_weight(self.id))
+                    node.upload_result(self.id, self.dumps_weight())
+                    weight = node.download_weight(self.id)
+                    if weight is not None:
+                        self.loads_weight(weight)
             self._state["epoch"] += 1
             # check merge iter == 0 to avoid repeated merge
             if self._merge_iter == 0 and self._should_merge:
                 self._logger.info(f"epoch {self._state['epoch']}, start merge")
                 # merge and update weight
                 node.upload_state(self.id, self.dumps_state())
-                node.upload_weight(self.id, self.dumps_weight())
-                self.loads_weight(node.download_weight(self.id))
+                node.upload_result(self.id, self.dumps_weight())
+                weight = node.download_weight(self.id)
+                if weight is not None:
+                    self.loads_weight(weight)

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import BinaryIO, Optional, List
+from typing import BinaryIO, List, Optional
 
 from ..node import Node
 
@@ -64,7 +64,22 @@ class Task(ABC):
 
     @property
     @abstractmethod
-    def members(self) -> Optional[List[str]]:
+    def type(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def secure_level(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def algorithm(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def members(self) -> List[str]:
         ...
 
     @abstractmethod
