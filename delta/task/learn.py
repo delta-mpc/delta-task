@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from io import BytesIO
-from typing import Any, BinaryIO, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, IO
 from zipfile import ZipFile
 
 import dill
@@ -145,7 +145,7 @@ class LearningTask(Task):
 
             return file.getvalue()
 
-    def dump_cfg(self, file: BinaryIO):
+    def dump_cfg(self, file: IO[bytes]):
         file.write(self.dumps_cfg())
 
     def _optimizers_cfg(self) -> Dict:
@@ -175,7 +175,7 @@ class LearningTask(Task):
         return cfg
 
     @classmethod
-    def load_cfg(cls, file: BinaryIO) -> "LearningTask":
+    def load_cfg(cls, file: IO[bytes]) -> "LearningTask":
         with ZipFile(file, mode="r") as zip_f:
             names = zip_f.namelist()
             model_files = [name for name in names if name.startswith("models/")]
@@ -242,10 +242,10 @@ class LearningTask(Task):
             torch.save(state_dict, f)
             return f.getvalue()
 
-    def dump_weight(self, file: BinaryIO):
+    def dump_weight(self, file: IO[bytes]):
         file.write(self.dumps_weight())
 
-    def load_weight(self, file: BinaryIO):
+    def load_weight(self, file: IO[bytes]):
         state_dict = torch.load(file)
         models = state_dict["models"]
         optimizers = state_dict["optimizers"]
@@ -263,13 +263,13 @@ class LearningTask(Task):
     def loads_state(self, data: bytes):
         self._state = json.loads(data)
 
-    def load_state(self, file: BinaryIO):
+    def load_state(self, file: IO[bytes]):
         self._state = json.load(file)
 
     def dumps_state(self) -> bytes:
         return json.dumps(self._state).encode("utf-8")
 
-    def dump_state(self, file: BinaryIO):
+    def dump_state(self, file: IO[bytes]):
         self._logger.info("dump state")
         self._logger.debug(self._state)
         file.write(json.dumps(self._state).encode("utf-8"))

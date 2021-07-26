@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import BinaryIO, List, Optional
+from typing import List, IO, BinaryIO
 
 from ..node import Node
 
@@ -14,7 +14,7 @@ class Task(ABC):
 
     @classmethod
     @abstractmethod
-    def load_cfg(cls, file: BinaryIO):
+    def load_cfg(cls, file: IO[bytes]):
         ...
 
     @abstractmethod
@@ -22,7 +22,7 @@ class Task(ABC):
         ...
 
     @abstractmethod
-    def dump_cfg(self, file: BinaryIO) -> bytes:
+    def dump_cfg(self, file: IO[bytes]) -> bytes:
         ...
 
     @abstractmethod
@@ -30,7 +30,7 @@ class Task(ABC):
         ...
 
     @abstractmethod
-    def load_weight(self, file: BinaryIO):
+    def load_weight(self, file: IO[bytes]):
         ...
 
     @abstractmethod
@@ -38,7 +38,7 @@ class Task(ABC):
         ...
 
     @abstractmethod
-    def dump_weight(self, file: BinaryIO) -> bytes:
+    def dump_weight(self, file: IO[bytes]) -> bytes:
         ...
 
     @abstractmethod
@@ -46,7 +46,7 @@ class Task(ABC):
         ...
 
     @abstractmethod
-    def load_state(self, file: BinaryIO):
+    def load_state(self, file: IO[bytes]):
         ...
 
     @abstractmethod
@@ -54,7 +54,7 @@ class Task(ABC):
         ...
 
     @abstractmethod
-    def dump_state(self, file: BinaryIO) -> bytes:
+    def dump_state(self, file: IO[bytes]) -> bytes:
         ...
 
     @property
