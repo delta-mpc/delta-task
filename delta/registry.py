@@ -10,9 +10,9 @@ class Registry(object):
     def __init__(self, url: str) -> None:
         self._url = url
 
-    def create_task(self, task):
+    def create_task(self, task: Task):
         url = f"{self._url}/task"
-        with TemporaryFile() as file:
+        with TemporaryFile(mode="w+b") as file:
             with ZipFile(file, mode="w") as zip_f:
                 metadata = {
                     "name": task.name,
@@ -30,6 +30,6 @@ class Registry(object):
 
                 with zip_f.open("weight", mode="w") as f:
                     task.dump_weight(f)
-
+            file.seek(0)
             resp = requests.post(url, files={"file": (f"{task.name}.zip", file)})
             resp.raise_for_status()

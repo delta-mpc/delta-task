@@ -2,11 +2,14 @@ import inspect
 import json
 import logging
 from io import BytesIO
+from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, IO
 from zipfile import ZipFile
+from tempfile import TemporaryFile
 
 import dill
 import torch
+import numpy as np
 
 from ..node import Node
 from .task import Task
@@ -229,50 +232,67 @@ class LearningTask(Task):
             return cls.load_cfg(f)
 
     def dumps_weight(self) -> bytes:
-        models = {name: model.state_dict() for name, model in self._models.items()}
-        optimizers = {name: opt.state_dict() for name, opt in self._optimizers.items()}
-        state_dict = {
-            "models": models,
-            "optimizers": optimizers,
-        }
-        self._logger.info("dump weight")
-        self._logger.debug(state_dict)
-
         with BytesIO() as f:
-            torch.save(state_dict, f)
+            self.dump_weight(f)
             return f.getvalue()
 
     def dump_weight(self, file: IO[bytes]):
-        file.write(self.dumps_weight())
+        arrs = []
+        for _, model in self._models.items():
+            for _, param in model.named_parameters():
+                arr = param.cpu().detach().numpy()
+                arrs.append(np.ravel(arr))    
+        weight_arr = np.concatenate(arrs, axis=0)
+        np.savez(file, weight_arr)
+
+    def _load_weight_arr(self, weight_arr: np.ndarray):
+        assert len(self._models) > 0
+        offset = 0
+        for _, model in self._models.items():
+            for _, param in model.named_parameters():
+                shape = list(param.shape)
+                size = param.numel()
+
+                param_arr = weight_arr[offset: offset + size]
+                offset += size
+
+                p = torch.from_numpy(param_arr).to(param.dtype).to(param.device).resize_(shape)
+                with torch.no_grad():
+                    param.copy_(p)
 
     def load_weight(self, file: IO[bytes]):
-        state_dict = torch.load(file)
-        models = state_dict["models"]
-        optimizers = state_dict["optimizers"]
-
-        for name, state in models.items():
-            self._models[name].load_state_dict(state)
-
-        for name, state in optimizers.items():
-            self._optimizers[name].load_state_dict(state)
+        arr_dict = np.load(file)
+        weight_arr = arr_dict["arr_0"]  # type: np.ndarray
+        self._load_weight_arr(weight_arr)
 
     def loads_weight(self, data: bytes):
         with BytesIO(data) as f:
             self.load_weight(f)
 
     def loads_state(self, data: bytes):
-        self._state = json.loads(data)
+        with BytesIO(data) as f:
+            self.load_state(f)
 
     def load_state(self, file: IO[bytes]):
-        self._state = json.load(file)
+        state_dict = torch.load(file)
+        self._state = state_dict["state"]
+        for name, model_state_dict in state_dict["models"].items():
+            model = self._models[name]
+            model.load_state_dict(model_state_dict)
+        for name, opt_state_dict in state_dict["optimizers"].items():
+            opt = self._optimizers[name]
+            opt.load_state_dict(opt_state_dict)
 
     def dumps_state(self) -> bytes:
-        return json.dumps(self._state).encode("utf-8")
+        with BytesIO() as f:
+            self.dump_state(f)
+            return f.getvalue()
 
     def dump_state(self, file: IO[bytes]):
-        self._logger.info("dump state")
-        self._logger.debug(self._state)
-        file.write(json.dumps(self._state).encode("utf-8"))
+        state = {"state": self._state}
+        state["models"] = {name: model.state_dict() for name, model in self._models.items()}
+        state["optimizers"] = {name: opt.state_dict() for name, opt in self._optimizers.items()}
+        torch.save(state, file)
 
     @property
     def _should_merge(self) -> bool:
@@ -290,11 +310,13 @@ class LearningTask(Task):
         # initial state
         init_state = node.download_state(self.id)
         if init_state:
-            self.loads_state(init_state)
+            self.load_state(init_state)
+            init_state.close()
         # initial weight
         init_weight = node.download_weight(self.id)
         if init_weight:
-            self.loads_weight(init_weight)
+            self.load_weight(init_weight)
+            init_weight.close()
 
         self._logger.info(
             f"train start from epoch {self._state['epoch']} iteration {self._state['iteration']}"
@@ -310,18 +332,35 @@ class LearningTask(Task):
                         f"iteration {self._state['iteration']}, start merge"
                     )
                     # merge and update weight
-                    node.upload_state(self.id, self.dumps_state())
-                    node.upload_result(self.id, self.dumps_weight())
+                    with TemporaryFile(mode="w+b") as f:
+                        self.dump_state(f)
+                        f.seek(0)
+                        node.upload_state(self.id, f)
+                    with TemporaryFile(mode="w+b") as f:
+                        self.dump_weight(f)
+                        f.seek(0)
+                        node.upload_result(self.id, f)
                     weight = node.download_weight(self.id)
                     if weight is not None:
-                        self.loads_weight(weight)
+                        self.load_weight(weight)
+                        weight.close()
             self._state["epoch"] += 1
             # check merge iter == 0 to avoid repeated merge
             if self._merge_iter == 0 and self._should_merge:
                 self._logger.info(f"epoch {self._state['epoch']}, start merge")
                 # merge and update weight
-                node.upload_state(self.id, self.dumps_state())
-                node.upload_result(self.id, self.dumps_weight())
+                with TemporaryFile(mode="w+b") as f:
+                    self.dump_state(f)
+                    f.seek(0)
+                    node.upload_state(self.id, f)
+                with TemporaryFile(mode="w+b") as f:
+                    self.dump_weight(f)
+                    f.seek(0)
+                    node.upload_result(self.id, f)
                 weight = node.download_weight(self.id)
                 if weight is not None:
-                    self.loads_weight(weight)
+                    self.load_weight(weight)
+                    weight.close()
+
+    def update(self, result: np.ndarray):
+        self._load_weight_arr(result)

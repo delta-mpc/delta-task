@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, IO, BinaryIO
 
+import numpy as np
+
 from ..node import Node
 
 
@@ -84,4 +86,8 @@ class Task(ABC):
 
     @abstractmethod
     def run(self, node: Node):
+        ...
+
+    @abstractmethod
+    def update(self, result: np.ndarray):
         ...

@@ -1,7 +1,8 @@
 import logging
 import os.path
+import shutil
 from tempfile import TemporaryDirectory
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional, IO
 
 import numpy as np
 import torch
@@ -63,36 +64,34 @@ class DebugNode(Node):
         data = DebugDataset(dataset, preprocess)
         return DataLoader(data, **dataloader)
 
-    def download_state(self, task_id: int) -> Optional[bytes]:
+    def download_state(self, task_id: int) -> Optional[IO[bytes]]:
         filename = self.state_file(task_id)
         if os.path.exists(filename):
             self._logger.info(f"load state {filename} for task {task_id}")
-            with open(filename, mode="rb") as f:
-                return f.read()
+            return open(filename, mode="rb")
         else:
             self._logger.info(f"initial state for task {task_id}")
             return None
 
-    def upload_state(self, task_id: int, data: bytes):
+    def upload_state(self, task_id: int, file: IO[bytes]):
         self._state_count += 1
         filename = self.state_file(task_id)
         with open(filename, mode="wb") as f:
-            f.write(data)
+            shutil.copyfileobj(file, f)
         self._logger.info(f"dump state {filename} for task {task_id}")
 
-    def upload_result(self, task_id: int, data: bytes):
+    def upload_result(self, task_id: int, file: IO[bytes]):
         self._weight_count += 1
         filename = self.weight_file(task_id)
         with open(filename, mode="wb") as f:
-            f.write(data)
+            shutil.copyfileobj(file, f)
         self._logger.info(f"upload weight {filename} for task {task_id}")
 
-    def download_weight(self, task_id) -> Optional[bytes]:
+    def download_weight(self, task_id) -> Optional[IO[bytes]]:
         filename = self.weight_file(task_id)
         if os.path.exists(filename):
             self._logger.info(f"download weight {filename} for task {task_id}")
-            with open(filename, mode="rb") as f:
-                return f.read()
+            return open(filename, mode="rb")
         else:
             self._logger.info(f"initial weight for task {task_id}")
             return None
