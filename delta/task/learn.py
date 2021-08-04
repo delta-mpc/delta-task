@@ -308,15 +308,15 @@ class LearningTask(Task):
             self._dataset, self._dataloader, self._preprocess
         )
         # initial state
-        init_state = node.download_state(self.id)
-        if init_state:
-            self.load_state(init_state)
-            init_state.close()
+        with TemporaryFile(mode="w+b") as f:
+            if node.download_state(f):
+                f.seek(0)
+                self.load_state(f)
         # initial weight
-        init_weight = node.download_weight(self.id)
-        if init_weight:
-            self.load_weight(init_weight)
-            init_weight.close()
+        with TemporaryFile(mode="w+b") as f:
+            if node.download_weight(f):
+                f.seek(0)
+                self.load_weight(f)
 
         self._logger.info(
             f"train start from epoch {self._state['epoch']} iteration {self._state['iteration']}"
@@ -335,15 +335,17 @@ class LearningTask(Task):
                     with TemporaryFile(mode="w+b") as f:
                         self.dump_state(f)
                         f.seek(0)
-                        node.upload_state(self.id, f)
+                        node.upload_state(f)
                     with TemporaryFile(mode="w+b") as f:
                         self.dump_weight(f)
                         f.seek(0)
-                        node.upload_result(self.id, f)
-                    weight = node.download_weight(self.id)
-                    if weight is not None:
-                        self.load_weight(weight)
-                        weight.close()
+                        node.upload_result(f)
+                    with TemporaryFile(mode="w+b") as f:
+                        if node.download_weight(f):
+                            f.seek(0)
+                            self.load_weight(f)
+                        else:
+                            raise ValueError("download weight failed")
             self._state["epoch"] += 1
             # check merge iter == 0 to avoid repeated merge
             if self._merge_iter == 0 and self._should_merge:
@@ -352,15 +354,17 @@ class LearningTask(Task):
                 with TemporaryFile(mode="w+b") as f:
                     self.dump_state(f)
                     f.seek(0)
-                    node.upload_state(self.id, f)
+                    node.upload_state(f)
                 with TemporaryFile(mode="w+b") as f:
                     self.dump_weight(f)
                     f.seek(0)
-                    node.upload_result(self.id, f)
-                weight = node.download_weight(self.id)
-                if weight is not None:
-                    self.load_weight(weight)
-                    weight.close()
+                    node.upload_result(f)
+                with TemporaryFile(mode="w+b") as f:
+                    if node.download_weight(f):
+                        f.seek(0)
+                        self.load_weight(f)
+                    else:
+                        raise ValueError("download weight failed")
 
     def update(self, result: np.ndarray):
         self._load_weight_arr(result)

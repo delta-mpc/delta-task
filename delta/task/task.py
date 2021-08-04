@@ -7,8 +7,6 @@ from ..node import Node
 
 
 class Task(ABC):
-    id: int
-
     @classmethod
     @abstractmethod
     def loads_cfg(cls, data: bytes):

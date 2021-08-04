@@ -6,6 +6,5 @@ if __name__ == "__main__":
     with open("task.cfg", mode="rb") as f:
         task = task_load(f)
 
-    node = DebugNode()
-    task.id = 1
+    node = DebugNode(1)
     task.run(node)

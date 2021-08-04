@@ -42,20 +42,21 @@ class DebugDataset(Dataset):
 
 
 class DebugNode(Node):
-    def __init__(self):
+    def __init__(self, task_id: int):
         self._logger = logging.getLogger(__name__)
 
         self._temp_dir = TemporaryDirectory()
 
+        self._task_id = task_id
         self._state_count = 0
         self._weight_count = 0
 
-    def state_file(self, task_id: int) -> str:
-        return os.path.join(self._temp_dir.name, f"{task_id}.state.{self._state_count}")
+    def state_file(self) -> str:
+        return os.path.join(self._temp_dir.name, f"{self._task_id}.state.{self._state_count}")
 
-    def weight_file(self, task_id: int) -> str:
+    def weight_file(self) -> str:
         return os.path.join(
-            self._temp_dir.name, f"{task_id}.weight.{self._weight_count}"
+            self._temp_dir.name, f"{self._task_id}.weight.{self._weight_count}"
         )
 
     def new_dataloader(
@@ -64,34 +65,38 @@ class DebugNode(Node):
         data = DebugDataset(dataset, preprocess)
         return DataLoader(data, **dataloader)
 
-    def download_state(self, task_id: int) -> Optional[IO[bytes]]:
-        filename = self.state_file(task_id)
+    def download_state(self, dst: IO[bytes]) -> bool:
+        filename = self.state_file()
         if os.path.exists(filename):
-            self._logger.info(f"load state {filename} for task {task_id}")
-            return open(filename, mode="rb")
+            self._logger.info(f"load state {filename} for task {self._task_id}")
+            with open(filename, mode="rb") as f:
+                shutil.copyfileobj(f, dst)
+            return True
         else:
-            self._logger.info(f"initial state for task {task_id}")
-            return None
+            self._logger.info(f"initial state for task {self._task_id}")
+            return False
 
-    def upload_state(self, task_id: int, file: IO[bytes]):
+    def upload_state(self, file: IO[bytes]):
         self._state_count += 1
-        filename = self.state_file(task_id)
+        filename = self.state_file()
         with open(filename, mode="wb") as f:
             shutil.copyfileobj(file, f)
-        self._logger.info(f"dump state {filename} for task {task_id}")
+        self._logger.info(f"dump state {filename} for task {self._task_id}")
 
-    def upload_result(self, task_id: int, file: IO[bytes]):
+    def upload_result(self, file: IO[bytes]):
         self._weight_count += 1
-        filename = self.weight_file(task_id)
+        filename = self.weight_file()
         with open(filename, mode="wb") as f:
             shutil.copyfileobj(file, f)
-        self._logger.info(f"upload weight {filename} for task {task_id}")
+        self._logger.info(f"upload weight {filename} for task {self._task_id}")
 
-    def download_weight(self, task_id) -> Optional[IO[bytes]]:
-        filename = self.weight_file(task_id)
+    def download_weight(self, dst: IO[bytes]) -> bool:
+        filename = self.weight_file()
         if os.path.exists(filename):
-            self._logger.info(f"download weight {filename} for task {task_id}")
-            return open(filename, mode="rb")
+            self._logger.info(f"download weight {filename} for task {self._task_id}")
+            with open(filename, mode="rb") as f:
+                shutil.copyfileobj(f, dst)
+            return True
         else:
-            self._logger.info(f"initial weight for task {task_id}")
-            return None
+            self._logger.info(f"initial weight for task {self._task_id}")
+            return False

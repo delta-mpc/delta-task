@@ -10,17 +10,17 @@ class Node(ABC):
         pass
 
     @abstractmethod
-    def download_state(self, task_id: int) -> Optional[IO[bytes]]:
+    def download_state(self, dst: IO[bytes]) -> bool:
         pass
 
     @abstractmethod
-    def upload_state(self, task_id: int, file: IO[bytes]):
+    def upload_state(self, file: IO[bytes]):
         pass
 
     @abstractmethod
-    def download_weight(self, task_id: int) -> Optional[IO[bytes]]:
+    def download_weight(self, dst: IO[bytes]) -> bool:
         pass
 
     @abstractmethod
-    def upload_result(self, task_id: int, data: IO[bytes]):
+    def upload_result(self, data: IO[bytes]):
         pass

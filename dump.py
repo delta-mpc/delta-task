@@ -9,7 +9,7 @@ if __name__ == "__main__":
         preprocess=preprocess,
         train_step=train_step,
         dataloader={"batch_size": 10, "shuffle": True, "drop_last": True},
-        total_epoch=100,
+        total_epoch=2,
     )
     with open("task.cfg", mode="wb") as f:
         task.dump_cfg(f)
