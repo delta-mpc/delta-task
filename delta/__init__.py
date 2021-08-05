@@ -1,1 +1,1 @@
-from .registry import Registry
+from .delta_node import DeltaNode

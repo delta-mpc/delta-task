@@ -6,7 +6,7 @@ from zipfile import ZipFile
 from .task import Task
 
 
-class Registry(object):
+class DeltaNode(object):
     def __init__(self, url: str) -> None:
         self._url = url
 

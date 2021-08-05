@@ -1,5 +1,6 @@
 import torch
 from torch import nn, optim
+import numpy as np
 
 
 class TestModel(nn.Module):
@@ -20,11 +21,11 @@ loss = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, nesterov=True)
 
 
-def preprocess(x: torch.Tensor):
+def preprocess(x: np.ndarray):
     y = int(x[0])
     x = x[1:]
     x = (x - 128) / 255
-    return x, y
+    return torch.tensor(x, dtype=torch.float32), torch.tensor(y, dtype=torch.long)
 
 
 def train_step(

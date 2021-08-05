@@ -303,34 +303,54 @@ class LearningTask(Task):
         return False
 
     def run(self, node: Node):
-        # initial dataloader
-        dataloader = node.new_dataloader(
-            self._dataset, self._dataloader, self._preprocess
-        )
-        # initial state
-        with TemporaryFile(mode="w+b") as f:
-            if node.download_state(f):
-                f.seek(0)
-                self.load_state(f)
-        # initial weight
-        with TemporaryFile(mode="w+b") as f:
-            if node.download_weight(f):
-                f.seek(0)
-                self.load_weight(f)
+        try:
+            # initial dataloader
+            dataloader = node.new_dataloader(
+                self._dataset, self._dataloader, self._preprocess
+            )
+            # initial state
+            with TemporaryFile(mode="w+b") as f:
+                if node.download_state(f):
+                    f.seek(0)
+                    self.load_state(f)
+            # initial weight
+            with TemporaryFile(mode="w+b") as f:
+                if node.download_weight(f):
+                    f.seek(0)
+                    self.load_weight(f)
 
-        self._logger.info(
-            f"train start from epoch {self._state['epoch']} iteration {self._state['iteration']}"
-        )
-        while self._state["epoch"] < self._total_epoch:
-            self._logger.info(f"epoch {self._state['epoch']}")
-            for batch in dataloader:
-                self._logger.info(f"iteration {self._state['iteration']}")
-                self._train_step(batch, **self._models, **self._optimizers)
-                self._state["iteration"] += 1
-                if self._should_merge:
-                    self._logger.info(
-                        f"iteration {self._state['iteration']}, start merge"
-                    )
+            self._logger.info(
+                f"train start from epoch {self._state['epoch']} iteration {self._state['iteration']}"
+            )
+            while self._state["epoch"] < self._total_epoch:
+                self._logger.info(f"epoch {self._state['epoch']}")
+                for batch in dataloader:
+                    self._logger.info(f"iteration {self._state['iteration']}")
+                    self._train_step(batch, **self._models, **self._optimizers)
+                    self._state["iteration"] += 1
+                    if self._should_merge:
+                        self._logger.info(
+                            f"iteration {self._state['iteration']}, start merge"
+                        )
+                        # merge and update weight
+                        with TemporaryFile(mode="w+b") as f:
+                            self.dump_state(f)
+                            f.seek(0)
+                            node.upload_state(f)
+                        with TemporaryFile(mode="w+b") as f:
+                            self.dump_weight(f)
+                            f.seek(0)
+                            node.upload_result(f)
+                        with TemporaryFile(mode="w+b") as f:
+                            if node.download_weight(f):
+                                f.seek(0)
+                                self.load_weight(f)
+                            else:
+                                raise ValueError("download weight failed")
+                self._state["epoch"] += 1
+                # check merge iter == 0 to avoid repeated merge
+                if self._merge_iter == 0 and self._should_merge:
+                    self._logger.info(f"epoch {self._state['epoch']}, start merge")
                     # merge and update weight
                     with TemporaryFile(mode="w+b") as f:
                         self.dump_state(f)
@@ -346,25 +366,8 @@ class LearningTask(Task):
                             self.load_weight(f)
                         else:
                             raise ValueError("download weight failed")
-            self._state["epoch"] += 1
-            # check merge iter == 0 to avoid repeated merge
-            if self._merge_iter == 0 and self._should_merge:
-                self._logger.info(f"epoch {self._state['epoch']}, start merge")
-                # merge and update weight
-                with TemporaryFile(mode="w+b") as f:
-                    self.dump_state(f)
-                    f.seek(0)
-                    node.upload_state(f)
-                with TemporaryFile(mode="w+b") as f:
-                    self.dump_weight(f)
-                    f.seek(0)
-                    node.upload_result(f)
-                with TemporaryFile(mode="w+b") as f:
-                    if node.download_weight(f):
-                        f.seek(0)
-                        self.load_weight(f)
-                    else:
-                        raise ValueError("download weight failed")
+        except Exception as e:
+            self._logger.error(e)
 
     def update(self, result: np.ndarray):
         self._load_weight_arr(result)
