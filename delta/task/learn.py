@@ -294,11 +294,10 @@ class LearningTask(Task):
         state["optimizers"] = {name: opt.state_dict() for name, opt in self._optimizers.items()}
         torch.save(state, file)
 
-    @property
-    def _should_merge(self) -> bool:
-        if self._merge_iter > 0 and self._state["iteration"] % self._merge_iter == 0:
+    def _should_merge(self, epoch_finish: bool) -> bool:
+        if not epoch_finish and  self._merge_iter > 0 and self._state["iteration"] % self._merge_iter == 0:
             return True
-        elif self._merge_epoch > 0 and self._state["epoch"] % self._merge_epoch == 0:
+        elif epoch_finish and self._merge_epoch > 0 and self._state["epoch"] % self._merge_epoch == 0:
             return True
         return False
 
@@ -322,13 +321,22 @@ class LearningTask(Task):
             self._logger.info(
                 f"train start from epoch {self._state['epoch']} iteration {self._state['iteration']}"
             )
+            merged = False
             while self._state["epoch"] < self._total_epoch:
-                self._logger.info(f"epoch {self._state['epoch']}")
                 for batch in dataloader:
-                    self._logger.info(f"iteration {self._state['iteration']}")
+                    if merged or self._state["iteration"] == 0:
+                        with TemporaryFile(mode="w+b") as f:
+                            if node.download_weight(f):
+                                f.seek(0)
+                                self.load_weight(f)
+                            else:
+                                raise ValueError("download weight failed")
+                        merged = False
+
+                    self._logger.info(f"epoch {self._state['epoch']} iteration {self._state['iteration']}")
                     self._train_step(batch, **self._models, **self._optimizers)
                     self._state["iteration"] += 1
-                    if self._should_merge:
+                    if self._should_merge(False):
                         self._logger.info(
                             f"iteration {self._state['iteration']}, start merge"
                         )
@@ -341,16 +349,10 @@ class LearningTask(Task):
                             self.dump_weight(f)
                             f.seek(0)
                             node.upload_result(f)
-                        with TemporaryFile(mode="w+b") as f:
-                            if node.download_weight(f):
-                                f.seek(0)
-                                self.load_weight(f)
-                            else:
-                                raise ValueError("download weight failed")
+                        merged = True
                 self._state["epoch"] += 1
-                # check merge iter == 0 to avoid repeated merge
-                if self._merge_iter == 0 and self._should_merge:
-                    self._logger.info(f"epoch {self._state['epoch']}, start merge")
+                self._logger.info(f"epoch: {self._state['epoch']} total epoch: {self._total_epoch}")
+                if self._should_merge(True):
                     # merge and update weight
                     with TemporaryFile(mode="w+b") as f:
                         self.dump_state(f)
@@ -360,12 +362,9 @@ class LearningTask(Task):
                         self.dump_weight(f)
                         f.seek(0)
                         node.upload_result(f)
-                    with TemporaryFile(mode="w+b") as f:
-                        if node.download_weight(f):
-                            f.seek(0)
-                            self.load_weight(f)
-                        else:
-                            raise ValueError("download weight failed")
+                    merged = True
+            node.finish()
+            self._logger.info(f"training finished, total {self._total_epoch}")
         except Exception as e:
             self._logger.error(e)
 

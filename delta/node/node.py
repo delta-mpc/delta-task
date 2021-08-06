@@ -24,3 +24,7 @@ class Node(ABC):
     @abstractmethod
     def upload_result(self, data: IO[bytes]):
         pass
+
+    @abstractmethod
+    def finish(self):
+        pass

@@ -100,3 +100,6 @@ class DebugNode(Node):
         else:
             self._logger.info(f"initial weight for task {self._task_id}")
             return False
+
+    def finish(self):
+        self._logger.info(f"task {self._task_id} finished")

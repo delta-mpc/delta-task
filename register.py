@@ -10,7 +10,8 @@ if __name__ == "__main__":
         preprocess=preprocess,
         train_step=train_step,
         dataloader={"batch_size": 10, "shuffle": True, "drop_last": True},
-        total_epoch=10,
-        members=["2", "3"]
+        total_epoch=2,
+        members=["2", "3"],
+        merge_iter=20
     )
     delta_node.create_task(task)
