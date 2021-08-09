@@ -20,10 +20,10 @@ class DebugDataset(Dataset):
         if os.path.isfile(dataset_path):
             if dataset_path.endswith(".npz"):
                 data = np.load(dataset_path)["arr_0"]
-                self._data = torch.from_numpy(data).float()
+                self._data = data
             elif dataset_path.endswith(".npy"):
                 data = np.load(dataset_path)
-                self._data = torch.from_numpy(data).float()
+                self._data = data
             elif dataset_path.endswith(".pt"):
                 self._data = torch.load(dataset_path)
             else:
