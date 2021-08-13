@@ -10,7 +10,7 @@ class DeltaNode(object):
     def __init__(self, url: str) -> None:
         self._url = url
 
-    def create_task(self, task: Task):
+    def create_task(self, task: Task) -> int:
         url = f"{self._url}/task"
         with TemporaryFile(mode="w+b") as file:
             with ZipFile(file, mode="w") as zip_f:
@@ -33,3 +33,6 @@ class DeltaNode(object):
             file.seek(0)
             resp = requests.post(url, files={"file": (f"{task.name}.zip", file)})
             resp.raise_for_status()
+            data = resp.json()
+            task_id = data["task_id"]
+            return task_id
