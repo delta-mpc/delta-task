@@ -11,7 +11,7 @@ class DeltaNode(object):
         self._url = url
 
     def create_task(self, task: Task) -> int:
-        url = f"{self._url}/task"
+        url = f"{self._url}/v1/task"
         with TemporaryFile(mode="w+b") as file:
             with ZipFile(file, mode="w") as zip_f:
                 metadata = {
