@@ -2,9 +2,8 @@ import torch
 import numpy as np
 import logging
 
-from delta import DeltaNode
 from delta.task import LearningTask
-from delta.node import DebugNode
+import delta
 
 
 class LeNet(torch.nn.Module):
@@ -68,5 +67,4 @@ if __name__ == "__main__":
         members=["2", "3"],
         merge_iter=20,
     )
-    node = DeltaNode("http://127.0.0.1:6701")
-    node.create_task(task)
+    delta.debug(task)
