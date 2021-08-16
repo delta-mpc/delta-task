@@ -2,43 +2,10 @@ import logging
 import os.path
 import shutil
 from tempfile import TemporaryDirectory
-from typing import Any, Callable, Dict, Iterable, Optional, IO
+from typing import IO, Any, Callable, Dict, Iterable
 
-import numpy as np
-import torch
-from torch.utils.data import DataLoader, Dataset
-
+from ..data import new_dataloader
 from .node import Node
-
-
-class DebugDataset(Dataset):
-    def __init__(self, dataset_path: str, preprocess: Callable = None):
-        self._data: torch.Tensor
-        self._preprocess = preprocess
-        if not os.path.exists(dataset_path):
-            raise RuntimeError(f"dataset path {dataset_path} does not exist")
-        if os.path.isfile(dataset_path):
-            if dataset_path.endswith(".npz"):
-                data = np.load(dataset_path)["arr_0"]
-                self._data = data
-            elif dataset_path.endswith(".npy"):
-                data = np.load(dataset_path)
-                self._data = data
-            elif dataset_path.endswith(".pt"):
-                self._data = torch.load(dataset_path)
-            else:
-                raise RuntimeError("unsupported dataset file format")
-        else:
-            raise RuntimeError("dataset path can only be a file now")
-
-    def __getitem__(self, index):
-        item = self._data[index]
-        if self._preprocess is not None:
-            item = self._preprocess(item)
-        return item
-
-    def __len__(self):
-        return len(self._data)
 
 
 class DebugNode(Node):
@@ -52,7 +19,9 @@ class DebugNode(Node):
         self._weight_count = 0
 
     def state_file(self) -> str:
-        return os.path.join(self._temp_dir.name, f"{self._task_id}.state.{self._state_count}")
+        return os.path.join(
+            self._temp_dir.name, f"{self._task_id}.state.{self._state_count}"
+        )
 
     def weight_file(self) -> str:
         return os.path.join(
@@ -62,8 +31,7 @@ class DebugNode(Node):
     def new_dataloader(
         self, dataset: str, dataloader: Dict[str, Any], preprocess: Callable
     ) -> Iterable:
-        data = DebugDataset(dataset, preprocess)
-        return DataLoader(data, **dataloader)
+        return new_dataloader(dataset, dataloader, preprocess)
 
     def download_state(self, dst: IO[bytes]) -> bool:
         filename = self.state_file()
