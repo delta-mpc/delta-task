@@ -324,7 +324,7 @@ class LearningTask(Task):
             merged = False
             while self._state["epoch"] < self._total_epoch:
                 for batch in dataloader:
-                    if merged or self._state["iteration"] == 0:
+                    if merged:
                         with TemporaryFile(mode="w+b") as f:
                             if node.download_weight(f):
                                 f.seek(0)
@@ -366,7 +366,7 @@ class LearningTask(Task):
             node.finish()
             self._logger.info(f"training finished, total {self._total_epoch}")
         except Exception as e:
-            self._logger.error(e)
+            self._logger.exception(e)
 
     def update(self, result: np.ndarray):
         self._load_weight_arr(result)
