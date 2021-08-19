@@ -1,9 +1,10 @@
-import torch
-import numpy as np
 import logging
 
+import numpy as np
+import torch
+
+from delta import DeltaNode
 from delta.task import LearningTask
-import delta
 
 
 class LeNet(torch.nn.Module):
@@ -23,7 +24,7 @@ class LeNet(torch.nn.Module):
         x = self.conv2(x)
         x = torch.relu(x)
         x = self.pool2(x)
-    
+
         x = x.view(-1, 400)
         x = self.dense1(x)
         x = torch.relu(x)
@@ -56,15 +57,19 @@ def preprocess(x: np.ndarray, y: str):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)    
+    logging.basicConfig(level=logging.DEBUG)
     task = LearningTask(
         name="test",
         dataset="mnist",
         preprocess=preprocess,
         train_step=train_step,
         dataloader={"batch_size": 256, "shuffle": True, "drop_last": True},
-        total_epoch=1,
-        members=["2", "3"],
+        total_epoch=2,
+        members=[
+            "55ZUVDZ4FIUAR6TFSH6I7CP6XPXWYC5AKMYDRJIIUONGLJ6E",
+            "Y7L6HUG5BCXWCXR5ADW2ATHA5PX4KNG74I2CBWULOEFVBWH5",
+        ],
         merge_iter=20,
     )
-    delta.debug(task)
+    delta_node = DeltaNode("http://127.0.0.1:6701")
+    delta_node.create_task(task)

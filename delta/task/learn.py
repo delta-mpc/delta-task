@@ -241,7 +241,7 @@ class LearningTask(Task):
         for _, model in self._models.items():
             for _, param in model.named_parameters():
                 arr = param.cpu().detach().numpy()
-                arrs.append(np.ravel(arr))    
+                arrs.append(np.ravel(arr))
         weight_arr = np.concatenate(arrs, axis=0)
         np.savez(file, weight_arr)
 
@@ -253,10 +253,15 @@ class LearningTask(Task):
                 shape = list(param.shape)
                 size = param.numel()
 
-                param_arr = weight_arr[offset: offset + size]
+                param_arr = weight_arr[offset : offset + size]
                 offset += size
 
-                p = torch.from_numpy(param_arr).to(param.dtype).to(param.device).resize_(shape)
+                p = (
+                    torch.from_numpy(param_arr)
+                    .to(param.dtype)
+                    .to(param.device)
+                    .resize_(shape)
+                )
                 with torch.no_grad():
                     param.copy_(p)
 
@@ -290,16 +295,39 @@ class LearningTask(Task):
 
     def dump_state(self, file: IO[bytes]):
         state = {"state": self._state}
-        state["models"] = {name: model.state_dict() for name, model in self._models.items()}
-        state["optimizers"] = {name: opt.state_dict() for name, opt in self._optimizers.items()}
+        state["models"] = {
+            name: model.state_dict() for name, model in self._models.items()
+        }
+        state["optimizers"] = {
+            name: opt.state_dict() for name, opt in self._optimizers.items()
+        }
         torch.save(state, file)
 
     def _should_merge(self, epoch_finish: bool) -> bool:
-        if not epoch_finish and  self._merge_iter > 0 and self._state["iteration"] % self._merge_iter == 0:
+        if (
+            not epoch_finish
+            and self._merge_iter > 0
+            and self._state["iteration"] % self._merge_iter == 0
+        ):
             return True
-        elif epoch_finish and self._merge_epoch > 0 and self._state["epoch"] % self._merge_epoch == 0:
+        elif (
+            epoch_finish
+            and self._merge_epoch > 0
+            and self._state["epoch"] % self._merge_epoch == 0
+        ):
             return True
         return False
+
+    def _merge_result(self, node: Node):
+        # merge and update weight
+        with TemporaryFile(mode="w+b") as f:
+            self.dump_state(f)
+            f.seek(0)
+            node.upload_state(f)
+        with TemporaryFile(mode="w+b") as f:
+            self.dump_weight(f)
+            f.seek(0)
+            node.upload_result(f)
 
     def run(self, node: Node):
         try:
@@ -333,36 +361,30 @@ class LearningTask(Task):
                                 raise ValueError("download weight failed")
                         merged = False
 
-                    self._logger.info(f"epoch {self._state['epoch']} iteration {self._state['iteration']}")
+                    self._logger.info(
+                        f"epoch {self._state['epoch']} iteration {self._state['iteration']}"
+                    )
                     self._train_step(batch, **self._models, **self._optimizers)
                     self._state["iteration"] += 1
                     if self._should_merge(False):
                         self._logger.info(
                             f"iteration {self._state['iteration']}, start merge"
                         )
-                        # merge and update weight
-                        with TemporaryFile(mode="w+b") as f:
-                            self.dump_state(f)
-                            f.seek(0)
-                            node.upload_state(f)
-                        with TemporaryFile(mode="w+b") as f:
-                            self.dump_weight(f)
-                            f.seek(0)
-                            node.upload_result(f)
+                        self._merge_result(node)
                         merged = True
                 self._state["epoch"] += 1
-                self._logger.info(f"epoch: {self._state['epoch']} total epoch: {self._total_epoch}")
+                self._logger.info(
+                    f"epoch: {self._state['epoch']} total epoch: {self._total_epoch}"
+                )
                 if self._should_merge(True):
-                    # merge and update weight
-                    with TemporaryFile(mode="w+b") as f:
-                        self.dump_state(f)
-                        f.seek(0)
-                        node.upload_state(f)
-                    with TemporaryFile(mode="w+b") as f:
-                        self.dump_weight(f)
-                        f.seek(0)
-                        node.upload_result(f)
+                    self._logger.info(f"epoch {self._state['epoch']}, start merge")
+                    self._merge_result(node)
                     merged = True
+            if not merged:
+                self._logger.info(f"training finished, merge unfinished round")
+                self._merge_result(node)
+                merged = True
+
             node.finish()
             self._logger.info(f"training finished, total {self._total_epoch}")
         except Exception as e:
