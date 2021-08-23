@@ -35,7 +35,7 @@ setup(
     include_package_data=True,
     exclude_package_data={"": [".gitignore"]},
     install_requires=[
-        'numpy~=1.20.1',
+        'numpy',
         'requests~=2.25.1',
         'pytest~=6.2.4',
         'dill~=0.3.4',
