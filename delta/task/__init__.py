@@ -1,5 +1,11 @@
-from .learn import LearningTask
-from .task import Task
-from .load import load
+from pathlib import Path
+from typing import IO, Union
 
-__all__ = ["LearningTask", "Task", "load"]
+from .horizontol import HorizontolTask
+from .task import Task
+
+__all__ = ["Task", "HorizontolTask", "load"]
+
+
+def load(file: Union[str, Path, IO[bytes]]) -> Task:
+    return Task.load(file)

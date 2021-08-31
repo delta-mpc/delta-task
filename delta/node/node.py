@@ -1,29 +1,21 @@
 from abc import ABC, abstractmethod
-from typing import IO, Any, Callable, Dict, Iterable, Optional
+from typing import IO, Any, Callable, Dict, Iterable, Optional, Tuple
 
 
 class Node(ABC):
     @abstractmethod
     def new_dataloader(
-        self, dataset: str, dataloader: Dict[str, Any], preprocess: Callable
-    ) -> Iterable:
+        self, dataset: str, validate_frac: float, cfg: Dict[str, Any], preprocess: Callable
+    ) -> Tuple[Iterable, Iterable]:
         pass
 
     @abstractmethod
-    def download_state(self, dst: IO[bytes]) -> bool:
-        pass
+    def download(self, type: str, dst: IO[bytes]) -> bool:
+        ...
 
     @abstractmethod
-    def upload_state(self, file: IO[bytes]):
-        pass
-
-    @abstractmethod
-    def download_weight(self, dst: IO[bytes]) -> bool:
-        pass
-
-    @abstractmethod
-    def upload_result(self, data: IO[bytes]):
-        pass
+    def upload(self, type: str, src: IO[bytes]):
+        ...
 
     @abstractmethod
     def finish(self):

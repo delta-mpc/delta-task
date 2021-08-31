@@ -2,7 +2,7 @@ import logging
 import os.path
 import shutil
 from tempfile import TemporaryDirectory
-from typing import IO, Any, Callable, Dict, Iterable
+from typing import IO, Any, Callable, Dict, Iterable, Tuple
 
 from ..data import new_dataloader
 from .node import Node
@@ -17,6 +17,7 @@ class DebugNode(Node):
         self._task_id = task_id
         self._state_count = 0
         self._weight_count = 0
+        self._metrics_count = 0
 
     def state_file(self) -> str:
         return os.path.join(
@@ -28,10 +29,40 @@ class DebugNode(Node):
             self._temp_dir.name, f"{self._task_id}.weight.{self._weight_count}"
         )
 
+    def metrics_file(self) -> str:
+        return os.path.join(
+            self._temp_dir.name, f"{self._task_id}.metrics.{self._metrics_count}"
+        )
+
     def new_dataloader(
-        self, dataset: str, dataloader: Dict[str, Any], preprocess: Callable
-    ) -> Iterable:
-        return new_dataloader(dataset, dataloader, preprocess)
+        self,
+        dataset: str,
+        validate_frac: float,
+        cfg: Dict[str, Any],
+        preprocess: Callable,
+    ) -> Tuple[Iterable, Iterable]:
+        assert "train" in cfg, "cfg should contain train"
+        assert "validate" in cfg, "cfg should contain validate"
+
+        train_loader = new_dataloader(dataset, cfg["train"], preprocess)
+        val_loader = new_dataloader(dataset, cfg["validate"], preprocess)
+        return train_loader, val_loader
+
+    def download(self, type: str, dst: IO[bytes]) -> bool:
+        if type == "state":
+            return self.download_state(dst)
+        elif type == "weight":
+            return self.download_weight(dst)
+        raise ValueError(f"unknown download type {type}")
+
+    def upload(self, type: str, src: IO[bytes]):
+        if type == "state":
+            return self.upload_state(src)
+        elif type == "result":
+            return self.upload_result(src)
+        elif type == "metrics":
+            return self.upload_metrics(src)
+        raise ValueError(f"unknown upload type {type}")
 
     def download_state(self, dst: IO[bytes]) -> bool:
         filename = self.state_file()
@@ -57,6 +88,13 @@ class DebugNode(Node):
         with open(filename, mode="wb") as f:
             shutil.copyfileobj(file, f)
         self._logger.info(f"upload weight {filename} for task {self._task_id}")
+
+    def upload_metrics(self, file: IO[bytes]):
+        self._metrics_count += 1
+        filename = self.metrics_file()
+        with open(filename, mode="wb") as f:
+            shutil.copyfileobj(file, f)
+        self._logger.info(f"upload metrics {filename} for task {self._task_id}")
 
     def download_weight(self, dst: IO[bytes]) -> bool:
         filename = self.weight_file()

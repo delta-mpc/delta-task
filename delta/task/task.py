@@ -1,91 +1,46 @@
+import os
+from os import PathLike
+from typing import IO, Union
 from abc import ABC, abstractmethod
-from typing import List, IO, BinaryIO
 
-import numpy as np
+import cloudpickle as pickle
 
-from ..node import Node
+from delta.node import Node
 
 
 class Task(ABC):
-    @classmethod
-    @abstractmethod
-    def loads_cfg(cls, data: bytes):
-        ...
+    def __init__(self, name: str, dataset: str):
+        self.name = name
+        self.dataset = dataset
 
     @classmethod
-    @abstractmethod
-    def load_cfg(cls, file: IO[bytes]):
-        ...
+    def load(cls, file: Union[str, PathLike, IO[bytes]]) -> "Task":
+        if isinstance(file, PathLike):
+            filename = os.fspath(file)
+            with open(filename, mode="rb") as f:
+                return pickle.load(f)
+        elif isinstance(file, str):
+            with open(file, mode="rb") as f:
+                return pickle.load(f)
+        else:
+            return pickle.load(file)
 
-    @abstractmethod
-    def dumps_cfg(self) -> bytes:
-        ...
-
-    @abstractmethod
-    def dump_cfg(self, file: IO[bytes]) -> bytes:
-        ...
-
-    @abstractmethod
-    def loads_weight(self, data: bytes):
-        ...
-
-    @abstractmethod
-    def load_weight(self, file: IO[bytes]):
-        ...
-
-    @abstractmethod
-    def dumps_weight(self) -> bytes:
-        ...
-
-    @abstractmethod
-    def dump_weight(self, file: IO[bytes]) -> bytes:
-        ...
-
-    @abstractmethod
-    def loads_state(self, data: bytes):
-        ...
-
-    @abstractmethod
-    def load_state(self, file: IO[bytes]):
-        ...
-
-    @abstractmethod
-    def dumps_state(self) -> bytes:
-        ...
-
-    @abstractmethod
-    def dump_state(self, file: IO[bytes]) -> bytes:
-        ...
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        ...
+    def dump(self, file: Union[str, PathLike, IO[bytes]]):
+        if isinstance(file, str):
+            with open(file, mode="wb") as f:
+                pickle.dump(self, f)
+        elif isinstance(file, PathLike):
+            filename = os.fspath(file)
+            with open(filename, mode="wb") as f:
+                pickle.dump(self, f)
+        else:
+            return pickle.dump(self, file)
 
     @property
     @abstractmethod
     def type(self) -> str:
         ...
 
-    @property
-    @abstractmethod
-    def secure_level(self) -> int:
-        ...
-
-    @property
-    @abstractmethod
-    def algorithm(self) -> str:
-        ...
-
-    @property
-    @abstractmethod
-    def members(self) -> List[str]:
-        ...
-
     @abstractmethod
     def run(self, node: Node):
-        ...
-
-    @abstractmethod
-    def update(self, result: np.ndarray):
         ...
