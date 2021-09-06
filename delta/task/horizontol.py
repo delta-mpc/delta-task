@@ -161,7 +161,9 @@ class HorizontolTask(Task):
                             self._load_weight(node)
                             merge = False
                         _logger.info(f"epoch {self.epoch} iteration {self.iteration}")
+                        
                         yield batch
+                        
                         if self._alg.should_merge(self.epoch, self.iteration, False):
                             _logger.info(f"iteration {self.iteration}, start to merge")
                             self._save_state(node)
@@ -183,7 +185,7 @@ class HorizontolTask(Task):
                     self._save_state(node)
                     self._upload_result(node)
                 node.finish()
-                _logger.info(f"training finished, total epochs {self.epoch}")
+                _logger.info(f"training finished, total epochs {self.max_epochs}")
 
             self.train(train_context())
 
