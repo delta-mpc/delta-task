@@ -3,7 +3,7 @@ from typing import IO, Union
 from zipfile import ZipFile
 
 from delta import serialize
-from delta.task import HorizontolTask, Task
+from delta.task import HorizontalTask, Task
 
 
 def dump_task(file: Union[str, PathLike, IO[bytes]], task: Task):

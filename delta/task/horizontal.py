@@ -23,17 +23,17 @@ class LoadError(Exception):
         return f"load {type} failed"
 
 
-class HorizontolTask(Task):
+class HorizontalTask(Task):
     def __init__(
         self,
         name: str,
         dataset: str,
-        max_epochs: int,
+        max_rounds: int,
         validate_interval: int = 1,
         validate_frac: float = 0.1,
     ):
         super().__init__(name, dataset)
-        self.max_epochs = max_epochs
+        self.max_rounds = max_rounds
         self.validate_interval = validate_interval
         self.validate_frac = validate_frac
 
@@ -42,11 +42,12 @@ class HorizontolTask(Task):
         self._state = {
             "epoch": 1,
             "iteration": 1,
+            "round": 1,
         }
 
     @property
     def type(self) -> str:
-        return "horizontol"
+        return "horizontal"
 
     @property
     def epoch(self) -> int:
@@ -63,6 +64,14 @@ class HorizontolTask(Task):
     @iteration.setter
     def iteration(self, iteration: int):
         self._state["iteration"] = iteration
+
+    @property
+    def round(self) -> int:
+        return self._state["round"]
+
+    @round.setter
+    def round(self, round: int):
+        self._state["round"] = round
 
     @abstractmethod
     def train(self, dataloader: Iterable):
@@ -154,12 +163,26 @@ class HorizontolTask(Task):
             )
 
             def train_context():
-                merge = False
-                while self.epoch <= self.max_epochs:
+                uploaded = False
+                finished = False
+
+                _logger.info(f"start round {self.round}")
+                while self.round <= self.max_rounds:
                     for batch in train_loader:
-                        if merge:
+                        if uploaded:
                             self._load_weight(node)
-                            merge = False
+                            if self.round % self.validate_interval == 0:
+                                _logger.info(f"round {self.round}, start to validate")
+                                metrics = self.validate(val_loader)
+                                _logger.info(f"metrics: {metrics}")
+                                self._upload_metrics(node, metrics)
+                            uploaded = False
+                            self.round += 1
+                            if self.round > self.max_rounds:
+                                finished = True
+                                break
+                            _logger.info(f"start round {self.round}")
+
                         _logger.info(f"epoch {self.epoch} iteration {self.iteration}")
                         
                         yield batch
@@ -168,24 +191,21 @@ class HorizontolTask(Task):
                             _logger.info(f"iteration {self.iteration}, start to merge")
                             self._save_state(node)
                             self._upload_result(node)
-                            merge = True
+                            uploaded = True
                         self.iteration += 1
+                    
+                    if finished:
+                        break
+
                     if self._alg.should_merge(self.epoch, self.iteration, True):
                         _logger.info(f"epoch {self.epoch}, start to merge")
                         self._save_state(node)
                         self._upload_result(node)
-                        merge = True
-                    if self.epoch % self.validate_interval == 0:
-                        _logger.info(f"epoch {self.epoch}, start to validate")
-                        metrics = self.validate(val_loader)
-                        _logger.info(f"metrics: {metrics}")
-                        self._upload_metrics(node, metrics)
+                        uploaded = True
+
                     self.epoch += 1
-                if not merge:
-                    self._save_state(node)
-                    self._upload_result(node)
                 node.finish()
-                _logger.info(f"training finished, total epochs {self.max_epochs}")
+                _logger.info(f"training finished, total epochs {self.epoch - 1}")
 
             self.train(train_context())
 

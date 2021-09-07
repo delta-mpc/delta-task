@@ -1,5 +1,6 @@
 from .base import HorizontalAlgorithm
-from .fed_avg import FedAvg
+from .fault_tolerant_fedavg import FaultTolerantFedAvg
+from .fedavg import FedAvg
 
 DefaultAlgorithm = FedAvg(
     merge_interval_epoch=0,
@@ -8,4 +9,4 @@ DefaultAlgorithm = FedAvg(
     connection_timeout=60,
 )
 
-__all__ = ["HorizontalAlgorithm", "FedAvg", "DefaultAlgorithm"]
+__all__ = ["HorizontalAlgorithm", "FedAvg", "DefaultAlgorithm", "FaultTolerantFedAvg"]
