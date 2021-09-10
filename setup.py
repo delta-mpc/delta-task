@@ -38,7 +38,7 @@ setup(
         'numpy',
         'requests~=2.25.1',
         'pytest~=6.2.4',
-        'cloudpickle~=0.5.3'
+        'cloudpickle==1.6.0'
     ],
     tests_require=["pytest"],
     cmdclass={"test": PyTest},
