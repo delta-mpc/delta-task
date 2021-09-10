@@ -30,7 +30,7 @@ class PyTest(TestCommand):
 
 setup(
     name="delta_task",
-    version="0.1.0",
+    version="0.1.1",
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={"": [".gitignore"]},
@@ -38,7 +38,7 @@ setup(
         'numpy',
         'requests~=2.25.1',
         'pytest~=6.2.4',
-        'dill~=0.3.4',
+        'cloudpickle~=0.5.3'
     ],
     tests_require=["pytest"],
     cmdclass={"test": PyTest},
