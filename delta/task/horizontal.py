@@ -184,16 +184,16 @@ class HorizontalTask(Task):
                             _logger.info(f"start round {self.round}")
 
                         _logger.info(f"epoch {self.epoch} iteration {self.iteration}")
-                        
+
                         yield batch
-                        
+
                         if self._alg.should_merge(self.epoch, self.iteration, False):
                             _logger.info(f"iteration {self.iteration}, start to merge")
                             self._save_state(node)
                             self._upload_result(node)
                             uploaded = True
                         self.iteration += 1
-                    
+
                     if finished:
                         break
 
