@@ -1,7 +1,6 @@
 import logging
 import os.path
 import shutil
-from tempfile import TemporaryDirectory
 from typing import IO, Any, Callable, Dict, Iterable, Tuple
 
 from ..data import new_dataloader
@@ -9,30 +8,26 @@ from .node import Node
 
 
 class DebugNode(Node):
-    def __init__(self, task_id: int):
+    def __init__(self, task_id: str, round: int, dirname: str):
         self._logger = logging.getLogger(__name__)
 
-        self._temp_dir = TemporaryDirectory()
+        self._dir = dirname
 
         self._task_id = task_id
-        self._state_count = 0
-        self._weight_count = 0
-        self._metrics_count = 0
+        self._round = round
 
-    def state_file(self) -> str:
-        return os.path.join(
-            self._temp_dir.name, f"{self._task_id}.state.{self._state_count}"
-        )
+    @property
+    def round(self) -> int:
+        return self._round
 
-    def weight_file(self) -> str:
-        return os.path.join(
-            self._temp_dir.name, f"{self._task_id}.weight.{self._weight_count}"
-        )
+    def state_file(self, round: int) -> str:
+        return os.path.join(self._dir, f"{self._task_id}.{round}.state")
 
-    def metrics_file(self) -> str:
-        return os.path.join(
-            self._temp_dir.name, f"{self._task_id}.metrics.{self._metrics_count}"
-        )
+    def weight_file(self, round: int) -> str:
+        return os.path.join(self._dir, f"{self._task_id}.{round}.weight")
+
+    def metrics_file(self, round: int) -> str:
+        return os.path.join(self._dir, f"{self._task_id}.{round}.metrics")
 
     def new_dataloader(
         self,
@@ -65,7 +60,7 @@ class DebugNode(Node):
         raise ValueError(f"unknown upload type {type}")
 
     def download_state(self, dst: IO[bytes]) -> bool:
-        filename = self.state_file()
+        filename = self.state_file(self.round - 1)
         if os.path.exists(filename):
             self._logger.info(f"load state {filename} for task {self._task_id}")
             with open(filename, mode="rb") as f:
@@ -76,28 +71,25 @@ class DebugNode(Node):
             return False
 
     def upload_state(self, file: IO[bytes]):
-        self._state_count += 1
-        filename = self.state_file()
+        filename = self.state_file(self.round)
         with open(filename, mode="wb") as f:
             shutil.copyfileobj(file, f)
         self._logger.info(f"dump state {filename} for task {self._task_id}")
 
     def upload_result(self, file: IO[bytes]):
-        self._weight_count += 1
-        filename = self.weight_file()
+        filename = self.weight_file(self.round)
         with open(filename, mode="wb") as f:
             shutil.copyfileobj(file, f)
         self._logger.info(f"upload weight {filename} for task {self._task_id}")
 
     def upload_metrics(self, file: IO[bytes]):
-        self._metrics_count += 1
-        filename = self.metrics_file()
+        filename = self.metrics_file(self.round)
         with open(filename, mode="wb") as f:
             shutil.copyfileobj(file, f)
         self._logger.info(f"upload metrics {filename} for task {self._task_id}")
 
     def download_weight(self, dst: IO[bytes]) -> bool:
-        filename = self.weight_file()
+        filename = self.weight_file(self.round - 1)
         if os.path.exists(filename):
             self._logger.info(f"download weight {filename} for task {self._task_id}")
             with open(filename, mode="rb") as f:
@@ -106,6 +98,3 @@ class DebugNode(Node):
         else:
             self._logger.info(f"initial weight for task {self._task_id}")
             return False
-
-    def finish(self):
-        self._logger.info(f"task {self._task_id} finished")
