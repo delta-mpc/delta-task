@@ -94,10 +94,10 @@ class ExampleTask(HorizontalTask):
         return FedAvg(
             merge_interval_epoch=0,
             merge_interval_iter=20,
-            wait_timeout=60,
+            wait_timeout=15,
             connection_timeout=10,
             min_clients=2,
-            max_clients=2,
+            max_clients=10,
         )
 
     def dataloader_config(
