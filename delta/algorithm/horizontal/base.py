@@ -1,8 +1,18 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, IO
+from typing import List, Literal, Optional, IO
 
 import numpy as np
 import torch
+
+
+CURVE_TYPE = Literal[
+    "secp192r1",
+    "secp224r1",
+    "secp256k1",
+    "secp256r1",
+    "secp384r1",
+    "secp521r1"
+]
 
 
 class HorizontalAlgorithm(ABC):
@@ -16,6 +26,8 @@ class HorizontalAlgorithm(ABC):
         wait_timeout: Optional[float] = None,
         connection_timeout: Optional[float] = None,
         fault_tolerant: bool = False,
+        precision: int = 8,
+        curve: CURVE_TYPE = "secp256k1"
     ):
         assert (
             merge_interval_epoch * merge_interval_iter == 0
@@ -31,6 +43,8 @@ class HorizontalAlgorithm(ABC):
         self.wait_timeout = wait_timeout
         self.connnection_timeout = connection_timeout
         self.fault_tolerant = fault_tolerant
+        self.precision = precision
+        self.curve = curve
 
     def should_merge(self, epoch: int, iteration: int, epoch_finished: bool):
         if epoch_finished:

@@ -1,9 +1,9 @@
-from typing import IO, List, Optional
+from typing import List, Optional
 
 import numpy as np
 import torch
 
-from .base import HorizontalAlgorithm
+from .base import CURVE_TYPE, HorizontalAlgorithm
 
 
 class FaultTolerantFedAvg(HorizontalAlgorithm):
@@ -15,6 +15,8 @@ class FaultTolerantFedAvg(HorizontalAlgorithm):
         max_clients: int = 2,
         wait_timeout: Optional[float] = None,
         connection_timeout: Optional[float] = None,
+        precision: int = 8,
+        curve: CURVE_TYPE = "secp256k1",
     ):
         super().__init__(
             "FaultTolerantFedAvg",
@@ -25,6 +27,8 @@ class FaultTolerantFedAvg(HorizontalAlgorithm):
             wait_timeout=wait_timeout,
             connection_timeout=connection_timeout,
             fault_tolerant=True,
+            precision=precision,
+            curve=curve,
         )
 
     def params_to_result(self, params: List[torch.Tensor]) -> np.ndarray:
