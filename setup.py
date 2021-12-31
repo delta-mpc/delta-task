@@ -30,15 +30,18 @@ class PyTest(TestCommand):
 
 setup(
     name="delta_task",
-    version="0.1.2",
+    version="0.3.0",
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={"": [".gitignore"]},
     install_requires=[
-        'numpy',
-        'requests~=2.25.1',
-        'pytest~=6.2.4',
-        'cloudpickle==1.6.0'
+        "cloudpickle==1.6.0",
+        "httpx==0.21.1",
+        "numpy==1.21.4",
+        "Pillow==8.4.0",
+        "pandas==1.2.3",
+        "pytest==6.2.5",
+        "torch==1.8.1+cpu",
     ],
     tests_require=["pytest"],
     cmdclass={"test": PyTest},
@@ -48,5 +51,5 @@ setup(
     author_email="73902525@qq.com",
     description="delta framework",
     python_requires=">=3.6",
-    url="https://github.com/delta-mpc/delta"
+    url="https://github.com/delta-mpc/delta",
 )
