@@ -37,3 +37,4 @@ mnist/
 mnist.npz
 .python-version
 *.text
+.pypirc

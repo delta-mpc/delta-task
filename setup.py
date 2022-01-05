@@ -29,7 +29,7 @@ class PyTest(TestCommand):
 
 
 setup(
-    name="delta_task",
+    name="delta-task",
     version="0.3.0",
     packages=find_packages(),
     include_package_data=True,
@@ -41,7 +41,7 @@ setup(
         "Pillow==8.4.0",
         "pandas==1.2.3",
         "pytest==6.2.5",
-        "torch==1.8.1+cpu",
+        "torch==1.8.2+cpu",
     ],
     tests_require=["pytest"],
     cmdclass={"test": PyTest},
