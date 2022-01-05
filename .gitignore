@@ -31,3 +31,10 @@ MANIFEST
 
 # vscode
 .vscode
+
+whls
+mnist/
+mnist.npz
+.python-version
+*.text
+.pypirc

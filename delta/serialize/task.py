@@ -1,9 +1,7 @@
 from os import PathLike
 from typing import IO, Union
-from zipfile import ZipFile
 
-from delta import serialize
-from delta.task import HorizontalTask, Task
+from delta.task import Task
 
 
 def dump_task(file: Union[str, PathLike, IO[bytes]], task: Task):

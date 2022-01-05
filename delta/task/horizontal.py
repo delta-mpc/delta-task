@@ -42,7 +42,6 @@ class HorizontalTask(Task):
         self._state = {
             "epoch": 1,
             "iteration": 1,
-            "round": 1,
         }
 
     @property
@@ -64,14 +63,6 @@ class HorizontalTask(Task):
     @iteration.setter
     def iteration(self, iteration: int):
         self._state["iteration"] = iteration
-
-    @property
-    def round(self) -> int:
-        return self._state["round"]
-
-    @round.setter
-    def round(self, round: int):
-        self._state["round"] = round
 
     @abstractmethod
     def train(self, dataloader: Iterable):
@@ -163,49 +154,39 @@ class HorizontalTask(Task):
             )
 
             def train_context():
-                uploaded = False
+                _logger.info(f"start round {node.round}")
                 finished = False
 
-                _logger.info(f"start round {self.round}")
-                while self.round <= self.max_rounds:
+                while not finished:
                     for batch in train_loader:
-                        if uploaded:
-                            self._load_weight(node)
-                            if self.round % self.validate_interval == 0:
-                                _logger.info(f"round {self.round}, start to validate")
-                                metrics = self.validate(val_loader)
-                                _logger.info(f"metrics: {metrics}")
-                                self._upload_metrics(node, metrics)
-                            uploaded = False
-                            self.round += 1
-                            if self.round > self.max_rounds:
-                                finished = True
-                                break
-                            _logger.info(f"start round {self.round}")
-
+                        if finished:
+                            break
+                        
                         _logger.info(f"epoch {self.epoch} iteration {self.iteration}")
-                        
+
                         yield batch
-                        
+
                         if self._alg.should_merge(self.epoch, self.iteration, False):
                             _logger.info(f"iteration {self.iteration}, start to merge")
-                            self._save_state(node)
                             self._upload_result(node)
-                            uploaded = True
+                            finished = True
                         self.iteration += 1
-                    
-                    if finished:
-                        break
 
                     if self._alg.should_merge(self.epoch, self.iteration, True):
                         _logger.info(f"epoch {self.epoch}, start to merge")
-                        self._save_state(node)
                         self._upload_result(node)
-                        uploaded = True
+                        finished = True
+                    if (self.iteration - 1) % len(train_loader) == 0:
+                        self.epoch += 1
 
-                    self.epoch += 1
-                node.finish()
-                _logger.info(f"training finished, total epochs {self.epoch - 1}")
+                if node.round % self.validate_interval == 0:
+                    _logger.info(f"round {node.round} start to validate")
+                    metrics = self.validate(val_loader)
+                    _logger.info(f"metrics: {metrics}")
+                    self._upload_metrics(node, metrics)
+
+                self._save_state(node)
+                _logger.info(f"training round {node.round} finished")
 
             self.train(train_context())
 

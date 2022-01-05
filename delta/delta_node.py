@@ -1,10 +1,9 @@
-import json
-import requests
 from tempfile import TemporaryFile
-from zipfile import ZipFile
-from delta import serialize
 
-from .task import Task
+import httpx
+
+from delta import serialize
+from delta.task import Task
 
 
 class DeltaNode(object):
@@ -16,7 +15,7 @@ class DeltaNode(object):
         with TemporaryFile(mode="w+b") as file:
             serialize.dump_task(file, task)
             file.seek(0)
-            resp = requests.post(url, files={"file": (f"{task.name}.zip", file)})
+            resp = httpx.post(url, files={"file": file})
             resp.raise_for_status()
             data = resp.json()
             task_id = data["task_id"]
