@@ -38,3 +38,4 @@ mnist.npz
 .python-version
 *.text
 .pypirc
+requirements.local.txt
