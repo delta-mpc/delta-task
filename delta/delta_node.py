@@ -2,8 +2,8 @@ from tempfile import TemporaryFile
 
 import httpx
 
-from delta import serialize
-from delta.task import Task
+from . import serialize
+from .core.task import Task
 
 
 class DeltaNode(object):
