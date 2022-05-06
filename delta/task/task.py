@@ -1,46 +1,39 @@
-import os
-from os import PathLike
-from typing import IO, Union
-from abc import ABC, abstractmethod
+from __future__ import annotations
 
-import cloudpickle as pickle
+import abc
+from typing import Dict, List, Tuple
 
-from delta.node import Node
+from ..core.strategy import Strategy
+from ..core.task import (
+    GraphNode,
+    InputGraphNode,
+    Task,
+    TaskConstructer,
+    TaskType,
+    build,
+)
 
 
-class Task(ABC):
-    def __init__(self, name: str, dataset: str):
+class HorizontalTask(abc.ABC):
+    def __init__(self, name: str, strategy: Strategy) -> None:
         self.name = name
-        self.dataset = dataset
+        self.strategy = strategy
 
-    @classmethod
-    def load(cls, file: Union[str, PathLike, IO[bytes]]) -> "Task":
-        if isinstance(file, PathLike):
-            filename = os.fspath(file)
-            with open(filename, mode="rb") as f:
-                return pickle.load(f)
-        elif isinstance(file, str):
-            with open(file, mode="rb") as f:
-                return pickle.load(f)
-        else:
-            return pickle.load(file)
-
-    def dump(self, file: Union[str, PathLike, IO[bytes]]):
-        if isinstance(file, str):
-            with open(file, mode="wb") as f:
-                pickle.dump(self, f)
-        elif isinstance(file, PathLike):
-            filename = os.fspath(file)
-            with open(filename, mode="wb") as f:
-                pickle.dump(self, f)
-        else:
-            return pickle.dump(self, file)
-
-    @property
-    @abstractmethod
-    def type(self) -> str:
+    @abc.abstractmethod
+    def dataset(self) -> Dict[str, InputGraphNode] | InputGraphNode:
         ...
 
-    @abstractmethod
-    def run(self, node: Node):
+    @abc.abstractmethod
+    def _build_graph(self) -> Tuple[List[InputGraphNode], List[GraphNode]]:
         ...
+
+    def build(self) -> Task:
+        inputs, outputs = self._build_graph()
+        constructor = TaskConstructer(
+            name=self.name,
+            inputs=inputs,
+            outputs=outputs,
+            strategy=self.strategy,
+            type=TaskType.HORIZONTAL,
+        )
+        return build(constructor)
