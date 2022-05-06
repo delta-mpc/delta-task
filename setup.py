@@ -30,7 +30,7 @@ class PyTest(TestCommand):
 
 setup(
     name="delta-task",
-    version="0.3.0",
+    version="0.5.0rc1",
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={"": [".gitignore"]},
@@ -42,6 +42,7 @@ setup(
         "pandas==1.2.3",
         "pytest==6.2.5",
         "torch==1.8.2+cpu",
+        "networkx==2.7.1"
     ],
     tests_require=["pytest"],
     cmdclass={"test": PyTest},
