@@ -1,11 +1,5 @@
-from pathlib import Path
-from typing import IO, Union
-
-from .horizontal import HorizontalTask
-from .task import Task
-
-__all__ = ["Task", "HorizontalTask", "load"]
+from .analytics import HorizontalAnalytics
+from .learning import HorizontalLearning, FaultTolerantFedAvg, FedAvg
 
 
-def load(file: Union[str, Path, IO[bytes]]) -> Task:
-    return Task.load(file)
+__all__ = ["HorizontalAnalytics", "HorizontalLearning", "FaultTolerantFedAvg", "FedAvg"]
