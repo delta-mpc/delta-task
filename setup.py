@@ -30,7 +30,7 @@ class PyTest(TestCommand):
 
 setup(
     name="delta-task",
-    version="0.5.0rc1",
+    version="0.5.0rc2",
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={"": [".gitignore"]},

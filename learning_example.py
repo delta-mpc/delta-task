@@ -1,24 +1,13 @@
 from typing import Any, Dict, Iterable, List, Tuple
 
-import logging
 import numpy as np
 import torch
 from PIL.Image import Image
 from torch.utils.data import DataLoader, Dataset
 
-from delta.debug import debug
 from delta.delta_node import DeltaNode
 from delta.task.learning import HorizontalLearning, FaultTolerantFedAvg
 import delta.dataset
-
-_logger = logging.getLogger("delta")
-datefmt = "%Y-%m-%d %H:%M:%S"
-common_fmt = "%(asctime)s.%(msecs)03d - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s"
-common_formatter = logging.Formatter(common_fmt, datefmt)
-common_handler = logging.StreamHandler()
-common_handler.setFormatter(common_formatter)
-_logger.addHandler(common_handler)
-_logger.setLevel("INFO")
 
 
 class LeNet(torch.nn.Module):
@@ -47,6 +36,10 @@ class LeNet(torch.nn.Module):
 
 
 def transform_data(data: List[Tuple[Image, str]]):
+    """
+    Used as the collate_fn of dataloader to preprocess the data.
+    Resize, normalize the input mnist image, and the return it as a torch.Tensor.
+    """
     xs, ys = [], []
     for x, y in data:
         xs.append(np.array(x).reshape((1, 28, 28)))
@@ -61,16 +54,17 @@ def transform_data(data: List[Tuple[Image, str]]):
 class Example(HorizontalLearning):
     def __init__(self) -> None:
         super().__init__(
-            name="example",
-            max_rounds=2,
-            validate_interval=1,
-            validate_frac=0.1,
-            strategy=FaultTolerantFedAvg(
-                min_clients=2,
-                max_clients=3,
-                merge_epoch=1,
-                wait_timeout=30,
-                connection_timeout=10
+            name="example",  # The task name which is used for displaying purpose.
+            max_rounds=2,  # The number of total rounds of training. In every round, all the nodes calculate their own partial results, and summit them to the server.
+            validate_interval=1,  # The number of rounds after which we calculate a validation score.
+            validate_frac=0.1,  # The ratio of samples for validate set in the whole dataset，range in (0,1)
+            strategy=FaultTolerantFedAvg(  # Strategy for secure aggregation, now available strategies are FedAvg and FaultTolerantFedAvg, in package delta.task.learning
+                min_clients=2,  # Minimum nodes required in each round, must be greater than 2.
+                max_clients=3,  # Maximum nodes allowed in each round, must be greater equal than min_clients.
+                merge_epoch=1,  # The number of epochs to run before aggregation is performed.
+                merge_iteration=0, # The number of iterations to run before aggregation is performed. One of this and the above number must be 0.
+                wait_timeout=30,  # Timeout for calculation.
+                connection_timeout=10  # Wait timeout for each step.
             )
         )
         self.model = LeNet()
@@ -84,15 +78,34 @@ class Example(HorizontalLearning):
         )
 
     def dataset(self) -> delta.dataset.Dataset:
+        """
+        Define the dataset for task.
+        return: an instance of delta.dataset.Dataset
+        """
         return delta.dataset.Dataset(dataset="mnist")
 
     def make_train_dataloader(self, dataset: Dataset) -> DataLoader:
+        """
+        Define the training dataloader. You can transform the dataset, do some preprocess to the dataset.
+        dataset: training dataset
+        return: training dataloader
+        """
         return DataLoader(dataset, batch_size=64, shuffle=True, drop_last=True, collate_fn=transform_data)  # type: ignore
 
     def make_validate_dataloader(self, dataset: Dataset) -> DataLoader:
+        """
+        Define the validation dataloader. You can transform the dataset, do some preprocess to the dataset.
+        dataset: validation dataset
+        return: validation dataloader
+        """
         return DataLoader(dataset, batch_size=64, shuffle=False, drop_last=False, collate_fn=transform_data)  # type: ignore
 
     def train(self, dataloader: Iterable):
+        """
+        The training step defination.
+        dataloader: the dataloader corresponding to the dataset.
+        return: None
+        """
         for batch in dataloader:
             x, y = batch
             y_pred = self.model(x)
@@ -102,6 +115,13 @@ class Example(HorizontalLearning):
             self.optimizer.step()
 
     def validate(self, dataloader: Iterable) -> Dict[str, Any]:
+        """
+        Validation method.
+        To calculate validation scores on each node after several training steps.
+        The result will also go through the secure aggregation before sending back to server.
+        dataloader: the dataloader corresponding to the dataset.
+        return: Dict[str, float], A dictionary with each key (str) corresponds to a score's name and the value (float) to the score's value.
+        """
         total_loss = 0
         count = 0
         ys = []
@@ -123,13 +143,15 @@ class Example(HorizontalLearning):
         return {"loss": avg_loss, "precision": precision}
 
     def state_dict(self) -> Dict[str, torch.Tensor]:
+        """
+        The params that need to train and update.
+        Only the params returned by this function will be updated and saved during aggregation.
+        return: List[torch.Tensor]， The list of model params.
+        """
         return self.model.state_dict()
 
-
 if __name__ == "__main__":
-    example = Example()
-    task = example.build()
-    # debug(task)
+    task = Example().build()
     DELTA_NODE_API = "http://127.0.0.1:6700"
 
     delta_node = DeltaNode(DELTA_NODE_API)
