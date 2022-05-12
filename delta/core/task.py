@@ -488,7 +488,7 @@ def build(constructor: TaskConstructer) -> Task:
     # sort operators
     op_layers = []
     inputs = constructor.inputs
-    init_ready = len(inputs) > 0
+    init_ready = False
     for layer in nx.topological_generations(graph):
         if isinstance(layer[0], Operator):
             op_layers.append(layer)
@@ -496,6 +496,9 @@ def build(constructor: TaskConstructer) -> Task:
             assert all(
                 isinstance(node, InputGraphNode) for node in layer
             ), "All input variables should be instance of InputGraphNode"
+            assert (
+                len(set(inputs) - set(layer)) == 0
+            ), "Graph first layer doesn't include all inputs"
             inputs = layer
             init_ready = True
 
