@@ -6,10 +6,10 @@ import delta.dataset
 from typing import Dict
 
 
-class Example(HorizontalAnalytics):
+class WageAvg(HorizontalAnalytics):
     def __init__(self) -> None:
         super().__init__(
-            name="example",  # The task name which is used for displaying purpose.
+            name="wage_avg",  # The task name which is used for displaying purpose.
             min_clients=2,  # Minimum nodes required in each round, must be greater than 2.
             max_clients=3,  # Maximum nodes allowed in each round, must be greater equal than min_clients.
             wait_timeout=5,  # Timeout for calculation.
@@ -22,20 +22,19 @@ class Example(HorizontalAnalytics):
         return: a dict of which key is the dataset name and value is an instance of delta.dataset.DataFrame
         """
         return {
-            "df1": delta.dataset.DataFrame("df1.csv"),
-            "df2": delta.dataset.DataFrame("df2.csv"),
+            "wages": delta.dataset.DataFrame("wages.csv")
         }
 
-    def execute(self, df1: pd.DataFrame, df2: pd.DataFrame):
+    def execute(self, wages: pd.DataFrame):
         """
         Implementation of analytics.
         input should be the same with keys of returned dict of dataset method.
         """
-        return df1.sum(), df2.sum()
+        return wages.mean()
 
 
 if __name__ == "__main__":
-    task = Example().build()
+    task = WageAvg().build()
 
     DELTA_NODE_API = "http://127.0.0.1:6700"
 
