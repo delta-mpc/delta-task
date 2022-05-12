@@ -31,6 +31,7 @@ class PyTest(TestCommand):
 setup(
     name="delta-task",
     version="0.5.1",
+    license_files=("LICENSE"),
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={"": [".gitignore"]},
@@ -53,4 +54,6 @@ setup(
     description="delta framework",
     python_requires=">=3.6",
     url="https://github.com/delta-mpc/delta",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
 )
