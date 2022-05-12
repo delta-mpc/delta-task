@@ -37,7 +37,7 @@ class Series(InputGraphNode, OpMixin["Series"]):
 
     def _dispatch_binary_op(self, other, name: str, op: Callable[..., Any], **kwargs):
         if not isinstance(other, GraphNode):
-            other_node = InputGraphNode(default=other)
+            other_node = InputGraphNode(default=other, location=DataLocation.SERVER)
         else:
             other_node = other
 
@@ -337,7 +337,7 @@ class Series(InputGraphNode, OpMixin["Series"]):
 
             def reduce(self, data: Dict[str, float], node_count: int) -> float:
                 res = data.get("sum")
-                if res:
+                if res is not None:
                     return res
                 else:
                     raise ValueError("aggregate result miss key sum")
@@ -408,10 +408,10 @@ class Series(InputGraphNode, OpMixin["Series"]):
 
             def reduce(self, data: Dict[str, float], node_count: int) -> float:
                 sum = data.get("sum")
-                if not sum:
+                if sum is None:
                     raise ValueError("aggregate result miss key sum")
                 count = data.get("count")
-                if not count:
+                if count is None:
                     raise ValueError("aggregate result miss key count")
 
                 return sum / count
@@ -489,13 +489,13 @@ class Series(InputGraphNode, OpMixin["Series"]):
 
             def reduce(self, data: Dict[str, float], node_count: int) -> float:
                 sum1 = data.get("sum1")
-                if not sum1:
+                if sum1 is None:
                     raise ValueError("aggregate result miss key sum1")
                 sum2 = data.get("sum2")
-                if not sum2:
+                if sum2 is None:
                     raise ValueError("aggregate result miss key sum2")
                 count = data.get("count")
-                if not count:
+                if count is None:
                     raise ValueError("aggregate result miss key count")
 
                 res = (sum2 / count - (sum1 / count) ** 2) * count / (count - self.ddof)
@@ -576,13 +576,13 @@ class Series(InputGraphNode, OpMixin["Series"]):
 
             def reduce(self, data: Dict[str, float], node_count: int) -> float:
                 sum1 = data.get("sum1")
-                if not sum1:
+                if sum1 is None:
                     raise ValueError("aggregate result miss key sum1")
                 sum2 = data.get("sum2")
-                if not sum2:
+                if sum2 is None:
                     raise ValueError("aggregate result miss key sum2")
                 count = data.get("count")
-                if not count:
+                if count is None:
                     raise ValueError("aggregate result miss key count")
 
                 res = (sum2 / count - (sum1 / count) ** 2) * count / (count - self.ddof)
@@ -663,13 +663,13 @@ class Series(InputGraphNode, OpMixin["Series"]):
 
             def reduce(self, data: Dict[str, float], node_count: int) -> float:
                 sum1 = data.get("sum1")
-                if not sum1:
+                if sum1 is None:
                     raise ValueError("aggregate result miss key sum1")
                 sum2 = data.get("sum2")
-                if not sum2:
+                if sum2 is None:
                     raise ValueError("aggregate result miss key sum2")
                 count = data.get("count")
-                if not count:
+                if count is None:
                     raise ValueError("aggregate result miss key count")
 
                 res = ((sum2 / count - (sum1 / count) ** 2) / (count - self.ddof)) ** (
