@@ -30,7 +30,7 @@ class PyTest(TestCommand):
 
 setup(
     name="delta-task",
-    version="0.5.1",
+    version="0.5.2rc1",
     license_files=("LICENSE"),
     packages=find_packages(),
     include_package_data=True,
@@ -39,7 +39,7 @@ setup(
         "cloudpickle==1.6.0",
         "httpx==0.21.1",
         "numpy==1.21.4",
-        "Pillow==8.4.0",
+        "Pillow==9.1.1",
         "pandas==1.2.3",
         "pytest==6.2.5",
         "torch==1.8.2+cpu",
