@@ -5,9 +5,9 @@ import torch
 from PIL.Image import Image
 from torch.utils.data import DataLoader, Dataset
 
-from delta.delta_node import DeltaNode
-from delta.task.learning import HorizontalLearning, FaultTolerantFedAvg
 import delta.dataset
+from delta.delta_node import DeltaNode
+from delta.task.learning import FaultTolerantFedAvg, HorizontalLearning
 
 
 class LeNet(torch.nn.Module):
@@ -62,10 +62,10 @@ class Example(HorizontalLearning):
                 min_clients=2,  # Minimum nodes required in each round, must be greater than 2.
                 max_clients=3,  # Maximum nodes allowed in each round, must be greater equal than min_clients.
                 merge_epoch=1,  # The number of epochs to run before aggregation is performed.
-                merge_iteration=0, # The number of iterations to run before aggregation is performed. One of this and the above number must be 0.
+                merge_iteration=0,  # The number of iterations to run before aggregation is performed. One of this and the above number must be 0.
                 wait_timeout=30,  # Timeout for calculation.
-                connection_timeout=10  # Wait timeout for each step.
-            )
+                connection_timeout=10,  # Wait timeout for each step.
+            ),
         )
         self.model = LeNet()
         self.loss_func = torch.nn.CrossEntropyLoss()
@@ -150,9 +150,11 @@ class Example(HorizontalLearning):
         """
         return self.model.state_dict()
 
+
 if __name__ == "__main__":
     task = Example().build()
     DELTA_NODE_API = "http://127.0.0.1:6700"
 
     delta_node = DeltaNode(DELTA_NODE_API)
-    delta_node.create_task(task)
+    task_id = delta_node.create_task(task)
+    delta_node.trace(task_id)
