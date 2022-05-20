@@ -1,9 +1,9 @@
-from delta import pandas as pd
-from delta.task import HorizontalAnalytics
-from delta.delta_node import DeltaNode
-import delta.dataset
-
 from typing import Dict
+
+import delta.dataset
+from delta import pandas as pd
+from delta.delta_node import DeltaNode
+from delta.task import HorizontalAnalytics
 
 
 class WageAvg(HorizontalAnalytics):
@@ -21,9 +21,7 @@ class WageAvg(HorizontalAnalytics):
         Define the data used for analytics.
         return: a dict of which key is the dataset name and value is an instance of delta.dataset.DataFrame
         """
-        return {
-            "wages": delta.dataset.DataFrame("wages.csv")
-        }
+        return {"wages": delta.dataset.DataFrame("wages.csv")}
 
     def execute(self, wages: pd.DataFrame):
         """
@@ -39,4 +37,5 @@ if __name__ == "__main__":
     DELTA_NODE_API = "http://127.0.0.1:6700"
 
     delta_node = DeltaNode(DELTA_NODE_API)
-    delta_node.create_task(task)
+    task_id = delta_node.create_task(task)
+    delta_node.trace(task_id)
