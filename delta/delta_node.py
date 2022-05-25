@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import pickle
 import time
+from datetime import datetime
+from io import BytesIO
 from tempfile import TemporaryFile
 from typing import Any, Dict, List
-from datetime import datetime, timezone
 
 import httpx
 
@@ -13,6 +15,7 @@ from .core.task import Task
 
 def format_timestamp(ts: float) -> str:
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+
 
 class DeltaNode(object):
     def __init__(self, url: str) -> None:
@@ -49,7 +52,9 @@ class DeltaNode(object):
 
         while True:
             while True:
-                resp = httpx.get(log_url, params={"task_id": task_id, "start": start, "limit": 20})
+                resp = httpx.get(
+                    log_url, params={"task_id": task_id, "start": start, "limit": 20}
+                )
                 resp.raise_for_status()
                 log_data: List[Dict[str, Any]] = resp.json()
 
@@ -78,3 +83,17 @@ class DeltaNode(object):
             elif status == 3:
                 return False
             time.sleep(1)
+
+    def get_result(self, task_id: int) -> Any:
+        url = f"{self._url}/v1/task/result"
+
+        resp = httpx.get(url, params={"task_id": task_id})
+        resp.raise_for_status()
+
+        with BytesIO() as file:
+            for chunk in resp.iter_bytes():
+                file.write(chunk)
+
+            file.seek(0)
+            res = pickle.load(file)
+        return res

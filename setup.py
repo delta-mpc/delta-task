@@ -30,7 +30,7 @@ class PyTest(TestCommand):
 
 setup(
     name="delta-task",
-    version="0.5.2",
+    version="0.5.3",
     license_files=("LICENSE"),
     packages=find_packages(),
     include_package_data=True,

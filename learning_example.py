@@ -63,7 +63,7 @@ class Example(HorizontalLearning):
                 max_clients=3,  # Maximum nodes allowed in each round, must be greater equal than min_clients.
                 merge_epoch=1,  # The number of epochs to run before aggregation is performed.
                 merge_iteration=0,  # The number of iterations to run before aggregation is performed. One of this and the above number must be 0.
-                wait_timeout=30,  # Timeout for calculation.
+                wait_timeout=45,  # Timeout for calculation.
                 connection_timeout=10,  # Wait timeout for each step.
             ),
         )
@@ -146,7 +146,7 @@ class Example(HorizontalLearning):
         """
         The params that need to train and update.
         Only the params returned by this function will be updated and saved during aggregation.
-        return: List[torch.Tensor]， The list of model params.
+        return: List[torch.Tensor], The list of model params.
         """
         return self.model.state_dict()
 
@@ -157,4 +157,8 @@ if __name__ == "__main__":
 
     delta_node = DeltaNode(DELTA_NODE_API)
     task_id = delta_node.create_task(task)
-    delta_node.trace(task_id)
+    if delta_node.trace(task_id):
+        res = delta_node.get_result(task_id)
+        print(type(res))
+    else:
+        print("Task error")

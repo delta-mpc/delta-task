@@ -38,4 +38,8 @@ if __name__ == "__main__":
 
     delta_node = DeltaNode(DELTA_NODE_API)
     task_id = delta_node.create_task(task)
-    delta_node.trace(task_id)
+    if delta_node.trace(task_id):
+        res = delta_node.get_result(task_id)
+        print(res)
+    else:
+        print("Task error")
