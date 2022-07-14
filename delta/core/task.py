@@ -3,10 +3,11 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, Set
 
 import networkx as nx
 import numpy as np
+import numpy.typing as npt
 import pandas
 
 from .strategy import Strategy
@@ -35,7 +36,12 @@ __all__ = [
     "TaskConstructer",
     "AggValueType",
     "AggResultType",
+    "EarlyStop",
 ]
+
+
+class EarlyStop(Exception):
+    pass
 
 
 class DataLocation(str, Enum):
@@ -216,7 +222,7 @@ class ReduceOperatorGroup(OperatorGroup):
         return OpType.REDUCE
 
 
-AggValueType = Union[np.ndarray, pandas.DataFrame, pandas.Series]
+AggValueType = Union[npt.NDArray, pandas.DataFrame, pandas.Series]
 
 AggResultType = Dict[str, AggValueType]
 
@@ -463,18 +469,18 @@ class TaskConstructer(object):
 def build(constructor: TaskConstructer) -> Task:
     graph = nx.DiGraph()
     # bfs build graph
-    queue: List[GraphNode | Operator] = list(constructor.outputs)
+    queue: Set[GraphNode | Operator] = set(constructor.outputs)
     while len(queue):
-        next_queue = []
+        next_queue = set()
         for node in queue:
             if isinstance(node, GraphNode):
                 if node.src:
                     graph.add_edge(node.src, node)
-                    next_queue.append(node.src)
+                    next_queue.add(node.src)
             elif isinstance(node, Operator):
                 for src in node.inputs:
                     graph.add_edge(src, node)
-                    next_queue.append(src)
+                    next_queue.add(src)
         queue = next_queue
 
     # name variables
