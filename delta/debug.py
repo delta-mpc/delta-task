@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 
 from .dataset import load_dataframe, load_dataset
 from .core.task import (ClientContext, DataFormat, DataLocation, DataNode,
-                        InputGraphNode, ServerContext, Task)
+                        InputGraphNode, ServerContext, Task, EarlyStop)
 
 
 class Aggregator(object):
@@ -42,7 +42,7 @@ class DebugClientContext(ClientContext):
                 value = self._server_ctx.get(var)[0]
 
             if value is None:
-                raise ValueError(f"Cannot get var {var.name}")
+                raise KeyError(f"Cannot get var {var.name}")
 
             res.append(value)
 
@@ -83,7 +83,7 @@ class DebugServerContext(ServerContext):
                     self._state[var.name] = value
 
             if value is None:
-                raise ValueError(f"Cannot get var {var.name}")
+                raise KeyError(f"Cannot get var {var.name}")
 
             res.append(value)
 
@@ -117,7 +117,10 @@ def debug(task: Task, **data: Any):
 
     for step in task.steps:
         step.map(client_context)
-        step.reduce(server_context)
+        try:
+            step.reduce(server_context)
+        except EarlyStop:
+            break
 
     res = tuple(server_context.get(*task.outputs))
     if len(res) == 1:

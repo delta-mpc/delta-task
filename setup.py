@@ -30,15 +30,15 @@ class PyTest(TestCommand):
 
 setup(
     name="delta-task",
-    version="0.5.3",
+    version="0.6.0rc1",
     license_files=("LICENSE"),
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={"": [".gitignore"]},
     install_requires=[
         "cloudpickle==1.6.0",
-        "httpx==0.21.1",
-        "numpy==1.21.4",
+        "httpx==0.23.0",
+        "numpy==1.22.0",
         "Pillow==9.1.1",
         "pandas==1.2.3",
         "pytest==6.2.5",
