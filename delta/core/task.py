@@ -131,7 +131,7 @@ class OperatorGroup(object):
         for op in ops:
             input_set = input_set.union(op.inputs)
             output_set = output_set.union(op.outputs)
-        self.name = "group"
+        self.name = "op_group"
         self.inputs = list(input_set)
         self.outputs = list(output_set)
 
@@ -222,7 +222,7 @@ class ReduceOperatorGroup(OperatorGroup):
         return OpType.REDUCE
 
 
-AggValueType = Union[npt.NDArray, pandas.DataFrame, pandas.Series]
+AggValueType = Union[npt.NDArray[np.int_], pandas.DataFrame, pandas.Series]
 
 AggResultType = Dict[str, AggValueType]
 
@@ -444,6 +444,7 @@ class Step(object):
 class TaskType(str, Enum):
     HORIZONTAL = "horizontal"
     VERTICAL = "vertical"
+    HLR = "hlr"
 
 
 @dataclass
@@ -455,6 +456,8 @@ class Task(object):
     inputs: List[InputGraphNode]
     outputs: List[DataNode]
     strategy: Strategy
+    enable_verify: bool
+    options: Dict[str, Any]
 
 
 @dataclass
@@ -464,6 +467,8 @@ class TaskConstructer(object):
     outputs: List[GraphNode]
     strategy: Strategy
     type: TaskType
+    enable_verify: bool
+    options: Dict[str, Any]
 
 
 def build(constructor: TaskConstructer) -> Task:
@@ -599,6 +604,8 @@ def build(constructor: TaskConstructer) -> Task:
         inputs=inputs,
         outputs=list(constructor.outputs),
         strategy=constructor.strategy,
+        enable_verify=constructor.enable_verify,
+        options=constructor.options,
     )
 
     final_step = task.steps[-1]

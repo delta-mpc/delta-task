@@ -13,6 +13,7 @@ from delta.core.task import (
     InputGraphNode,
     MapOperator,
     MapReduceOperator,
+    TaskType,
 )
 from delta.task import HorizontalTask
 
@@ -77,6 +78,8 @@ def hessian(params: FloatArray, y: IntArray, x: FloatArray):
 
 
 class LogitTask(HorizontalTask):
+    TYPE: TaskType = TaskType.HLR
+
     def __init__(
         self,
         name: str,
@@ -86,6 +89,7 @@ class LogitTask(HorizontalTask):
         connection_timeout: float = 60,
         precision: int = 8,
         curve: CURVE_TYPE = "secp256k1",
+        enable_verify: bool = True,
     ) -> None:
         strategy = AnalyticsStrategy(
             min_clients=min_clients,
@@ -95,7 +99,7 @@ class LogitTask(HorizontalTask):
             precision=precision,
             curve=curve,
         )
-        super().__init__(name, strategy)
+        super().__init__(name, strategy, enable_verify)
 
     @abstractmethod
     def preprocess(self, **inputs: Any) -> Tuple[Any, Any]:
@@ -166,7 +170,7 @@ class LogitTask(HorizontalTask):
                 self.preprocess = preprocess
                 self.names = names
 
-            def map(self, *args) -> Tuple[FloatArray, FloatArray]:
+            def map(self, *args) -> Tuple[FloatArray, IntArray]:
                 kwargs = dict(zip(self.names, args))
                 x, y = self.preprocess(**kwargs)
                 x = np.asarray(x, dtype=np.float64)
