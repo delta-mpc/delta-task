@@ -25,7 +25,19 @@ IntArray = npt.NDArray[np.int_]
 
 
 def sigmoid(x: FloatArray) -> FloatArray:
-    return 1 / (1 + np.exp(-x))
+    out = np.zeros_like(x)
+
+    con1 = np.abs(x) >= 5
+    out[con1] = 1
+    con2 = np.logical_and(np.abs(x) < 5, np.abs(x) >= 2.375)
+    out[con2] = 0.03125 * np.abs(x[con2]) + 0.84375
+    con3 = np.logical_and(np.abs(x) < 2.375, np.abs(x) >= 1)
+    out[con3] = 0.125 * np.abs(x[con3]) + 0.625
+    con4 = np.logical_and(np.abs(x) < 1, np.abs(x) >= 0)
+    out[con4] = 0.25 * np.abs(x[con4]) + 0.5
+    con5 = x < 0
+    out[con5] = 1 - out[con5]
+    return out
 
 
 def logsigmoid(x: FloatArray) -> FloatArray:
