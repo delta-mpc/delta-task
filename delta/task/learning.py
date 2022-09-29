@@ -212,26 +212,6 @@ class HorizontalLearning(HorizontalTask):
     def _dataset_nodes(
         self, dataset_node: delta.dataset.Dataset
     ) -> Tuple[GraphNode] | Tuple[GraphNode, GraphNode]:
-        # train_dataset = DatasetNode(
-        #     name="train_dataset",
-        #     location=DataLocation.CLIENT,
-        #     dataset=self.dataset,
-        #     validate=False,
-        #     validate_frac=self.validate_frac,
-        #     seed=self.seed,
-        # )
-        # if self.enable_validate:
-        #     validate_dataset = DatasetNode(
-        #         name="validate_dataset",
-        #         location=DataLocation.CLIENT,
-        #         dataset=self.dataset,
-        #         validate=True,
-        #         validate_frac=self.validate_frac,
-        #         seed=self.seed,
-        #     )
-        #     return train_dataset, validate_dataset
-        # else:
-        #     return (train_dataset,)
         class _SplitDatasetOp(MapOperator):
             def __init__(
                 self,
@@ -262,7 +242,7 @@ class HorizontalLearning(HorizontalTask):
                         return train_dataset
                 else:
                     if self.validate:
-                        train_dataset, val_dataset = split_dataset(
+                        val_dataset, train_dataset = split_dataset(
                             dataset, self.validate_frac
                         )
                         return train_dataset, val_dataset
@@ -497,6 +477,7 @@ class HorizontalLearning(HorizontalTask):
                         res[key] = tmp.item()
                     except ValueError:
                         res[key] = tmp
+                    _logger.info(f"Round {self.round} validating result {key}: {res[key]}")
                 return res
 
         val_op = _ValidateOp(

@@ -13,6 +13,7 @@ from delta.core.task import (
     InputGraphNode,
     MapOperator,
     MapReduceOperator,
+    TaskType,
 )
 from delta.task import HorizontalTask
 
@@ -25,7 +26,19 @@ IntArray = npt.NDArray[np.int_]
 
 
 def sigmoid(x: FloatArray) -> FloatArray:
-    return 1 / (1 + np.exp(-x))
+    out = np.zeros_like(x)
+
+    con1 = np.abs(x) >= 5
+    out[con1] = 1
+    con2 = np.logical_and(np.abs(x) < 5, np.abs(x) >= 2.375)
+    out[con2] = 0.03125 * np.abs(x[con2]) + 0.84375
+    con3 = np.logical_and(np.abs(x) < 2.375, np.abs(x) >= 1)
+    out[con3] = 0.125 * np.abs(x[con3]) + 0.625
+    con4 = np.logical_and(np.abs(x) < 1, np.abs(x) >= 0)
+    out[con4] = 0.25 * np.abs(x[con4]) + 0.5
+    con5 = x < 0
+    out[con5] = 1 - out[con5]
+    return out
 
 
 def logsigmoid(x: FloatArray) -> FloatArray:
@@ -65,6 +78,8 @@ def hessian(params: FloatArray, y: IntArray, x: FloatArray):
 
 
 class LogitTask(HorizontalTask):
+    TYPE: TaskType = TaskType.HLR
+
     def __init__(
         self,
         name: str,
@@ -72,18 +87,21 @@ class LogitTask(HorizontalTask):
         max_clients: int = 2,
         wait_timeout: float = 60,
         connection_timeout: float = 60,
+        verify_timeout: float = 300,
         precision: int = 8,
         curve: CURVE_TYPE = "secp256k1",
+        enable_verify: bool = True,
     ) -> None:
         strategy = AnalyticsStrategy(
             min_clients=min_clients,
             max_clients=max_clients,
             wait_timeout=wait_timeout,
             connection_timeout=connection_timeout,
+            verify_timeout=verify_timeout,
             precision=precision,
             curve=curve,
         )
-        super().__init__(name, strategy)
+        super().__init__(name, strategy, enable_verify)
 
     @abstractmethod
     def preprocess(self, **inputs: Any) -> Tuple[Any, Any]:
@@ -154,7 +172,7 @@ class LogitTask(HorizontalTask):
                 self.preprocess = preprocess
                 self.names = names
 
-            def map(self, *args) -> Tuple[FloatArray, FloatArray]:
+            def map(self, *args) -> Tuple[FloatArray, IntArray]:
                 kwargs = dict(zip(self.names, args))
                 x, y = self.preprocess(**kwargs)
                 x = np.asarray(x, dtype=np.float64)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from ..core.strategy import Strategy
 from ..core.task import (
@@ -15,9 +15,14 @@ from ..core.task import (
 
 
 class HorizontalTask(abc.ABC):
-    def __init__(self, name: str, strategy: Strategy) -> None:
+    TYPE: TaskType = TaskType.HORIZONTAL
+
+    def __init__(
+        self, name: str, strategy: Strategy, enable_verify: bool = False
+    ) -> None:
         self.name = name
         self.strategy = strategy
+        self.enable_verify = enable_verify
 
     @abc.abstractmethod
     def dataset(self) -> Dict[str, InputGraphNode] | InputGraphNode:
@@ -27,6 +32,9 @@ class HorizontalTask(abc.ABC):
     def _build_graph(self) -> Tuple[List[InputGraphNode], List[GraphNode]]:
         ...
 
+    def options(self) -> Dict[str, Any]:
+        return {}
+
     def build(self) -> Task:
         inputs, outputs = self._build_graph()
         constructor = TaskConstructer(
@@ -34,6 +42,8 @@ class HorizontalTask(abc.ABC):
             inputs=inputs,
             outputs=outputs,
             strategy=self.strategy,
-            type=TaskType.HORIZONTAL,
+            type=self.TYPE,
+            enable_verify=self.enable_verify,
+            options=self.options(),
         )
         return build(constructor)

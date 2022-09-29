@@ -16,6 +16,7 @@ class Strategy(object):
         select_strategy: SelectStrategy,
         wait_timeout: float = 60,
         connection_timeout: float = 60,
+        verify_timeout: float = 300,
         fault_tolerant: bool = False,
         precision: int = 8,
         curve: CURVE_TYPE = "secp256k1",
@@ -24,6 +25,7 @@ class Strategy(object):
         self.select_strategy = select_strategy
         self.wait_timeout = wait_timeout
         self.connection_timeout = connection_timeout
+        self.verify_timeout = verify_timeout
         self.fault_tolerant = fault_tolerant
         self.precision = precision
         self.curve = curve

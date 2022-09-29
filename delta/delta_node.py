@@ -26,34 +26,39 @@ class DeltaNode(object):
         with TemporaryFile(mode="w+b") as file:
             serialize.dump_task(file, task)
             file.seek(0)
-            resp = httpx.post(url, files={"file": file})
+            resp = httpx.post(url, files={"file": file}, timeout=None)
             resp.raise_for_status()
             data = resp.json()
             task_id = data["task_id"]
             return task_id
 
     def wait(self, task_id: int) -> bool:
-        url = f"{self._url}/v1/task/status"
+        url = f"{self._url}/v1/task/metadata"
         while True:
-            resp = httpx.get(url, params={"task_id": task_id})
+            resp = httpx.get(url, params={"task_id": task_id}, timeout=None)
             resp.raise_for_status()
-            data = resp.json()
-            status: int = data["status"]
-            if status == 2:
-                return True
-            elif status == 3:
+            metadata = resp.json()
+            status: str = metadata["status"]
+            enable_verify: bool = metadata["enable_verify"]
+
+            if status == "ERROR":
                 return False
+            elif enable_verify and status == "CONFIRMED":
+                return True
+            elif (not enable_verify) and status == "FINISHED":
+                return True
+
             time.sleep(1)
 
     def trace(self, task_id: int) -> bool:
-        status_url = f"{self._url}/v1/task/status"
+        metadata_url = f"{self._url}/v1/task/metadata"
         log_url = f"{self._url}/v1/task/logs"
         start = 0
 
         while True:
             while True:
                 resp = httpx.get(
-                    log_url, params={"task_id": task_id, "start": start, "limit": 20}
+                    log_url, params={"task_id": task_id, "start": start, "limit": 20}, timeout=None
                 )
                 resp.raise_for_status()
                 log_data: List[Dict[str, Any]] = resp.json()
@@ -73,21 +78,25 @@ class DeltaNode(object):
                         tx_url = f"https://explorer.deltampc.com/tx/{tx_hash}/internal-transactions"
                         print(tx_url)
 
-            resp = httpx.get(status_url, params={"task_id": task_id})
+            resp = httpx.get(metadata_url, params={"task_id": task_id}, timeout=None)
             resp.raise_for_status()
-            status_data = resp.json()
-            status: int = status_data["status"]
+            metadata = resp.json()
+            status: str = metadata["status"]
+            enable_verify: bool = metadata["enable_verify"]
 
-            if status == 2:
-                return True
-            elif status == 3:
+            if status == "ERROR":
                 return False
+            elif enable_verify and status == "CONFIRMED":
+                return True
+            elif (not enable_verify) and status == "FINISHED":
+                return True
+
             time.sleep(1)
 
     def get_result(self, task_id: int) -> Any:
         url = f"{self._url}/v1/task/result"
 
-        resp = httpx.get(url, params={"task_id": task_id})
+        resp = httpx.get(url, params={"task_id": task_id}, timeout=None)
         resp.raise_for_status()
 
         with BytesIO() as file:

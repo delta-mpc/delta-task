@@ -24,9 +24,9 @@ ModelFunc = Callable[[FloatArray, FloatArray, FloatArray], FloatArray]
 
 def norm(v: FloatArray, ord: float = 2):
     if ord == np.inf:
-        return np.max(v)
+        return np.max(np.abs(v))
     elif ord == -np.inf:
-        return np.min(v)
+        return np.min(np.abs(v))
     else:
         return np.sum(np.abs(v) ** ord, axis=0) ** (1 / ord)
 
