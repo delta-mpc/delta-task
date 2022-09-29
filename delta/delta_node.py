@@ -26,7 +26,7 @@ class DeltaNode(object):
         with TemporaryFile(mode="w+b") as file:
             serialize.dump_task(file, task)
             file.seek(0)
-            resp = httpx.post(url, files={"file": file})
+            resp = httpx.post(url, files={"file": file}, timeout=None)
             resp.raise_for_status()
             data = resp.json()
             task_id = data["task_id"]
@@ -35,7 +35,7 @@ class DeltaNode(object):
     def wait(self, task_id: int) -> bool:
         url = f"{self._url}/v1/task/metadata"
         while True:
-            resp = httpx.get(url, params={"task_id": task_id})
+            resp = httpx.get(url, params={"task_id": task_id}, timeout=None)
             resp.raise_for_status()
             metadata = resp.json()
             status: str = metadata["status"]
@@ -58,7 +58,7 @@ class DeltaNode(object):
         while True:
             while True:
                 resp = httpx.get(
-                    log_url, params={"task_id": task_id, "start": start, "limit": 20}
+                    log_url, params={"task_id": task_id, "start": start, "limit": 20}, timeout=None
                 )
                 resp.raise_for_status()
                 log_data: List[Dict[str, Any]] = resp.json()
@@ -78,7 +78,7 @@ class DeltaNode(object):
                         tx_url = f"https://explorer.deltampc.com/tx/{tx_hash}/internal-transactions"
                         print(tx_url)
 
-            resp = httpx.get(metadata_url, params={"task_id": task_id})
+            resp = httpx.get(metadata_url, params={"task_id": task_id}, timeout=None)
             resp.raise_for_status()
             metadata = resp.json()
             status: str = metadata["status"]
@@ -96,7 +96,7 @@ class DeltaNode(object):
     def get_result(self, task_id: int) -> Any:
         url = f"{self._url}/v1/task/result"
 
-        resp = httpx.get(url, params={"task_id": task_id})
+        resp = httpx.get(url, params={"task_id": task_id}, timeout=None)
         resp.raise_for_status()
 
         with BytesIO() as file:
