@@ -16,6 +16,8 @@ class SpectorLogitTask(LogitTask):
             max_clients=3,  # Maximum nodes allowed in each round, must be greater equal than min_clients.
             wait_timeout=5,  # Timeout for calculation.
             connection_timeout=5,  # Wait timeout for each step.
+            verify_timeout=360,  # Timeout for the final zero knownledge verification step
+            enable_verify=True  # whether to enable final zero knownledge verification step
         )
 
     def dataset(self):
@@ -54,8 +56,8 @@ class IrisLogitTask(MNLogitTask):
 
 
 if __name__ == "__main__":
-    # task = SpectorLogitTask().build()
-    task = IrisLogitTask().build()
+    task = SpectorLogitTask().build()
+    # task = IrisLogitTask().build()
 
     DELTA_NODE_API = "http://127.0.0.1:6700"
 
