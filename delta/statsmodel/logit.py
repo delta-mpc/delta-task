@@ -87,6 +87,7 @@ class LogitTask(HorizontalTask):
         max_clients: int = 2,
         wait_timeout: float = 60,
         connection_timeout: float = 60,
+        verify_timeout: float = 300,
         precision: int = 8,
         curve: CURVE_TYPE = "secp256k1",
         enable_verify: bool = True,
@@ -96,6 +97,7 @@ class LogitTask(HorizontalTask):
             max_clients=max_clients,
             wait_timeout=wait_timeout,
             connection_timeout=connection_timeout,
+            verify_timeout=verify_timeout,
             precision=precision,
             curve=curve,
         )
