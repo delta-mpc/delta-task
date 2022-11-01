@@ -2,35 +2,33 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Type
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type
 
+import delta.dataset
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
-import delta.dataset
 
-from ..dataset import split_dataset
 from ..core.strategy import (
-    LearningStrategy,
-    RandomSelectStrategy,
+    CURVE_TYPE,
     EpochMergeStrategy,
     IterMergeStrategy,
-    WeightResultStrategy,
-    CURVE_TYPE,
+    LearningStrategy,
+    RandomSelectStrategy,
     ResultStrategy,
     SelectStrategy,
+    WeightResultStrategy,
 )
 from ..core.task import (
-    DataFormat,
     DataLocation,
     DataNode,
     GraphNode,
     InputGraphNode,
     MapOperator,
     MapReduceOperator,
-    Operator,
     ReduceOperator,
 )
+from ..dataset import split_dataset
 from .task import HorizontalTask
 
 _logger = logging.getLogger(__name__)
@@ -60,14 +58,14 @@ class FedAvg(LearningStrategy):
             merge_strategy = IterMergeStrategy(merge_iteration)
         super().__init__(
             "FedAvg",
-            select_strategy(min_clients, max_clients),
-            merge_strategy,
-            result_strategy(),
-            wait_timeout,
-            connection_timeout,
-            False,
-            precision,
-            curve,
+            select_strategy=select_strategy(min_clients, max_clients),
+            merge_strategy=merge_strategy,
+            result_strategy=result_strategy(),
+            wait_timeout=wait_timeout,
+            connection_timeout=connection_timeout,
+            fault_tolerant=False,
+            precision=precision,
+            curve=curve,
         )
 
 
@@ -100,14 +98,14 @@ class FaultTolerantFedAvg(LearningStrategy):
 
         super().__init__(
             "FaultTolerantFedAvg",
-            select_strategy(min_clients, max_clients),
-            merge_strategy,
-            result_strategy(),
-            wait_timeout,
-            connection_timeout,
-            True,
-            precision,
-            curve,
+            select_strategy=select_strategy(min_clients, max_clients),
+            merge_strategy=merge_strategy,
+            result_strategy=result_strategy(),
+            wait_timeout=wait_timeout,
+            connection_timeout=connection_timeout,
+            fault_tolerant=True,
+            precision=precision,
+            curve=curve,
         )
 
 
@@ -477,7 +475,9 @@ class HorizontalLearning(HorizontalTask):
                         res[key] = tmp.item()
                     except ValueError:
                         res[key] = tmp
-                    _logger.info(f"Round {self.round} validating result {key}: {res[key]}")
+                    _logger.info(
+                        f"Round {self.round} validating result {key}: {res[key]}"
+                    )
                 return res
 
         val_op = _ValidateOp(
