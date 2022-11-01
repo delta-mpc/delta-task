@@ -17,7 +17,7 @@ class SpectorLogitTask(LogitTask):
             wait_timeout=5,  # Timeout for calculation.
             connection_timeout=5,  # Wait timeout for each step.
             verify_timeout=360,  # Timeout for the final zero knownledge verification step
-            enable_verify=True  # whether to enable final zero knownledge verification step
+            enable_verify=False  # whether to enable final zero knownledge verification step
         )
 
     def dataset(self):
