@@ -23,10 +23,25 @@ class DeltaNode(object):
 
     def create_task(self, task: Task) -> int:
         url = f"{self._url}/v1/task"
-        with TemporaryFile(mode="w+b") as file:
-            serialize.dump_task(file, task)
-            file.seek(0)
-            resp = httpx.post(url, files={"file": file}, timeout=None)
+        with TemporaryFile(mode="w+b") as task_file, TemporaryFile(mode="w+b") as config_file:
+            task_config = {
+                "name": task.name,
+                "dataset": task.dataset,
+                "type": task.type,
+                "enable_verify": task.enable_verify,
+                "options": task.options
+            }
+            pickle.dump(task_config, config_file)
+            config_file.seek(0)
+
+            serialize.dump_task(task_file, task)
+            task_file.seek(0)
+            files = {
+                "file": ("task_file.pkl", task_file, "application/octet-stream"),
+                "config": ("task_config_file.pkl", config_file, "application/pickle")
+            }
+
+            resp = httpx.post(url, files=files, timeout=None)
             resp.raise_for_status()
             data = resp.json()
             task_id = data["task_id"]
