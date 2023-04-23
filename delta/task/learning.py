@@ -517,7 +517,12 @@ class HorizontalLearning(HorizontalTask):
                 self.learning.strategy.weight_to_params(
                     weight, self.learning.state_dict()
                 )
-                return self.learning.state_dict()
+                res: Dict[str, Any] = {
+                    "weight": self.learning.state_dict()
+                }
+                if metrics is not None:
+                    res["metrics"] = metrics
+                return res
 
         input_nodes: List[DataNode] = [weight_node]
         if metrics_node is not None:
