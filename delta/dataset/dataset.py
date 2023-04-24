@@ -31,8 +31,8 @@ class Dataset(InputGraphNode):
 
 
 class FileDataset(TorchDataset):
-    def __init__(self, filename: str) -> None:
-        result = load_file(filename)
+    def __init__(self, filename: str, **kwargs) -> None:
+        result = load_file(filename, **kwargs)
         if isinstance(result, Image.Image):
             raise ValueError("file dataset does not support image file")
         self._result = result
@@ -50,9 +50,10 @@ class FileDataset(TorchDataset):
 
 
 class DirectoryDataset(TorchDataset):
-    def __init__(self, directory: str) -> None:
+    def __init__(self, directory: str, **kwargs) -> None:
         self._xs = []
         self._ys = []
+        self._kwargs = kwargs
         root, dirnames, filenames = next(os.walk(directory))
         if len(filenames) > 0 and len(dirnames) == 0:
             self._xs.extend([os.path.join(root, filename) for filename in filenames])
@@ -77,7 +78,7 @@ class DirectoryDataset(TorchDataset):
 
     def __getitem__(self, index):
         filename = self._xs[index]
-        x = load_file(filename)
+        x = load_file(filename, **self._kwargs)
         y = None
         if len(self._ys) > 0:
             y = self._ys[index]
@@ -121,12 +122,12 @@ def split_dataset(
 
 
 def load_dataset(
-    dataset_name: str,
+    dataset_name: str, **kwargs
 ) -> TorchDataset | Tuple[TorchDataset, TorchDataset]:
     if not os.path.exists(dataset_name):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), dataset_name)
     if os.path.isfile(dataset_name):
-        dataset = FileDataset(dataset_name)
+        dataset = FileDataset(dataset_name, **kwargs)
         return dataset
     else:
         train_path = os.path.join(dataset_name, "train")
@@ -140,12 +141,12 @@ def load_dataset(
             train_root, _, train_files = next(os.walk(train_path))
             val_root, _, val_files = next(os.walk(val_path))
             if len(train_files) == 1 and len(val_files) == 1:
-                train_dataset = FileDataset(os.path.join(train_root, train_files[0]))
-                val_dataset = FileDataset(os.path.join(val_root, val_files[0]))
+                train_dataset = FileDataset(os.path.join(train_root, train_files[0]), **kwargs)
+                val_dataset = FileDataset(os.path.join(val_root, val_files[0]), **kwargs)
             else:
-                train_dataset = DirectoryDataset(train_path)
-                val_dataset = DirectoryDataset(val_path)
+                train_dataset = DirectoryDataset(train_path, **kwargs)
+                val_dataset = DirectoryDataset(val_path, **kwargs)
             return train_dataset, val_dataset
         else:
-            dataset = DirectoryDataset(dataset_name)
+            dataset = DirectoryDataset(dataset_name, **kwargs)
             return dataset

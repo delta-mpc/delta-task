@@ -39,6 +39,8 @@ def load_file(
         result = pd.read_csv(filename, sep=r"\s+", **kwargs)
     elif filename.endswith(".xls") or filename.endswith(".xlsx"):
         result = pd.read_excel(filename, **kwargs)
+    elif filename.endswith(".json"):
+        result = pd.read_json(filename, **kwargs)
     else:
         try:
             result = Image.open(filename, **kwargs)
