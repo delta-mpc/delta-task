@@ -372,9 +372,14 @@ class HorizontalLearning(HorizontalTask):
                 epoch: int,
                 iteration: int,
             ) -> Tuple[Dict[str, np.ndarray], int, int]:
-                self.learning.strategy.weight_to_params(
-                    weight, self.learning.state_dict()
-                )
+                if len(weight) > 0:
+                    self.learning.strategy.weight_to_params(
+                        weight, self.learning.state_dict()
+                    )
+                else:
+                    weight = self.learning.strategy.params_to_weight(
+                        self.learning.state_dict()
+                    )
                 _logger.info(f"Round {self.round} training")
                 train_iter = TrainIterator(
                     dataloader, epoch, iteration, self.learning.strategy
@@ -517,9 +522,7 @@ class HorizontalLearning(HorizontalTask):
                 self.learning.strategy.weight_to_params(
                     weight, self.learning.state_dict()
                 )
-                res: Dict[str, Any] = {
-                    "weight": self.learning.state_dict()
-                }
+                res: Dict[str, Any] = {"weight": self.learning.state_dict()}
                 if metrics is not None:
                     res["metrics"] = metrics
                 return res
@@ -546,9 +549,8 @@ class HorizontalLearning(HorizontalTask):
         iteration_node = InputGraphNode(
             name="iteration", location=DataLocation.CLIENT, default=1
         )
-        weight_arr = self.strategy.params_to_weight(self.state_dict())
         weight_node = InputGraphNode(
-            name="weight_0", location=DataLocation.SERVER, default=weight_arr
+            name="weight_0", location=DataLocation.SERVER, default=np.empty(0)
         )
         metrics_node = None
         inputs = [dataset_node, epoch_node, iteration_node, weight_node]
