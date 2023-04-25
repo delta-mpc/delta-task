@@ -121,27 +121,55 @@ class TrainIterator(object):
         self.epoch = epoch
         self.iteration = iteration
         self.strategy = strategy
+        self.batch_sampler = None
 
     def __iter__(self):
         return self._get_iter()
+
+    def _make_dataloader(self) -> DataLoader:
+        if self.batch_sampler is None:
+            return self.dataloader
+        else:
+            return DataLoader(
+                dataset=self.dataloader.dataset,
+                batch_sampler=self.batch_sampler,
+                num_workers=self.dataloader.num_workers,
+                collate_fn=self.dataloader.collate_fn,
+                pin_memory=self.dataloader.pin_memory,
+                timeout=self.dataloader.timeout,
+                worker_init_fn=self.dataloader.worker_init_fn,
+                multiprocessing_context=self.dataloader.multiprocessing_context,
+                generator=self.dataloader.generator,
+                prefetch_factor=self.dataloader.prefetch_factor,
+                persistent_workers=self.dataloader.persistent_workers,
+                pin_memory_device=self.dataloader.pin_memory_device,
+            )
 
     def _get_iter(self):
         finished = False
 
         while not finished:
-            for batch in self.dataloader:
+            count = 0
+            dataloader = self._make_dataloader()
+            for batch in dataloader:
                 if finished:
                     break
 
                 _logger.info(f"Training epoch {self.epoch} iteration {self.iteration}")
 
                 yield batch
-
+                
+                count += 1
                 if self.strategy.should_merge(self.epoch, self.iteration, False):
                     _logger.info(f"iteration {self.iteration}, start to merge")
+                    assert dataloader.batch_sampler is not None
+                    if self.batch_sampler is None:
+                        self.batch_sampler = list(dataloader.batch_sampler)
+                    self.batch_sampler = self.batch_sampler[count:]
                     finished = True
                 self.iteration += 1
-
+            
+            self.batch_sampler = None
             if self.strategy.should_merge(self.epoch, self.iteration, True):
                 _logger.info(f"epoch {self.epoch}, start to merge")
                 finished = True
