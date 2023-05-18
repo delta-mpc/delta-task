@@ -91,7 +91,7 @@ class DataFrame(InputGraphNode, OpMixin["DataFrame"]):
 
     def _dispatch_binary_op(
         self,
-        other: "DataFrame" | "Series" | List[float] | float,
+        other: "DataFrame | Series | List[float] | float",
         op_name: str,
         op: Callable[..., Any],
         **kwargs: Any,
