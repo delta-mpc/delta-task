@@ -30,20 +30,20 @@ class PyTest(TestCommand):
 
 setup(
     name="delta-task",
-    version="0.8.3",
+    version="0.8.4rc1",
     license_files=("LICENSE"),
     packages=find_packages(),
     include_package_data=True,
     exclude_package_data={"": [".gitignore"]},
     install_requires=[
-        "cloudpickle==1.6.0",
-        "httpx==0.23.0",
-        "numpy==1.22.0",
-        "Pillow==9.1.1",
-        "pandas==1.2.3",
-        "pytest==6.2.5",
-        "torch==1.8.2+cpu",
-        "networkx==2.7.1"
+        "cloudpickle>=1.6.0",
+        "httpx>=0.23.0",
+        "numpy>=1.22.0",
+        "Pillow>=9.1.1",
+        "pandas>=1.2.3",
+        "pytest>=6.2.5",
+        "torch>=1.8.2",
+        "networkx>=2.7.1"
     ],
     tests_require=["pytest"],
     cmdclass={"test": PyTest},
