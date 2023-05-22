@@ -492,6 +492,7 @@ def build(constructor: TaskConstructer) -> Task:
     var_count = 0
     for node in nx.topological_sort(graph):
         if isinstance(node, GraphNode):
+            node.src = None
             if len(node.name) == 0:
                 node.name = f"_{var_count}"
             var_count += 1
