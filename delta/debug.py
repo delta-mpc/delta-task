@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+import concurrent.futures
+from typing import Any, Callable, Dict, List, Tuple, TypeVar
 
-from .dataset import load_dataframe, load_dataset
+import cloudpickle as pickle
+from typing_extensions import ParamSpec
+
 from .core.task import (ClientContext, DataFormat, DataLocation, DataNode,
-                        InputGraphNode, ServerContext, Task, EarlyStop)
+                        EarlyStop, InputGraphNode, ServerContext, Task)
+from .dataset import load_dataframe, load_dataset
+
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
 
 
 class Aggregator(object):
@@ -103,6 +110,23 @@ class DebugServerContext(ServerContext):
         self._state.clear()
 
 
+def _mp_func(func_bytes: bytes, *args, **kwargs) -> bytes:
+    f = pickle.loads(func_bytes)
+    res = f(*args, **kwargs)
+    return pickle.dumps(res)
+
+
+def _run_in_worker(
+    func: Callable[_P, _T], /, *args: _P.args, **kwargs: _P.kwargs
+) -> _T:
+    func_bytes = pickle.dumps(func)
+    with concurrent.futures.ThreadPoolExecutor(1) as pool:
+        fut = pool.submit(_mp_func, func_bytes, *args, **kwargs)
+        res_bytes = fut.result()
+    res = pickle.loads(res_bytes)
+    return res
+
+
 def debug(task: Task, **data: Any):
     aggregator = Aggregator()
     server_context = DebugServerContext(aggregator)
@@ -116,9 +140,9 @@ def debug(task: Task, **data: Any):
                 server_context.set((var, data[var.name]))
 
     for step in task.steps:
-        step.map(client_context)
+        _run_in_worker(step.map, client_context)
         try:
-            step.reduce(server_context)
+            _run_in_worker(step.reduce, server_context)
         except EarlyStop:
             break
 
