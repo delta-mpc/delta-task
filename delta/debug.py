@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import gc
 import concurrent.futures
 from typing import Any, Callable, Dict, List, Tuple, TypeVar
 
+import torch.cuda
 import cloudpickle as pickle
 from typing_extensions import ParamSpec
 
@@ -127,6 +129,12 @@ def _run_in_worker(
     return res
 
 
+def _clear():
+    gc.collect()
+    if torch.cuda.is_initialized():
+        torch.cuda.empty_cache()
+
+
 def debug(task: Task, **data: Any):
     aggregator = Aggregator()
     server_context = DebugServerContext(aggregator)
@@ -141,8 +149,10 @@ def debug(task: Task, **data: Any):
 
     for step in task.steps:
         _run_in_worker(step.map, client_context)
+        _clear()
         try:
             _run_in_worker(step.reduce, server_context)
+            _clear()
         except EarlyStop:
             break
 
