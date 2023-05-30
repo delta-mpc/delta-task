@@ -235,6 +235,9 @@ class HorizontalLearning(HorizontalTask):
     def dataset(self) -> delta.dataset.Dataset:
         ...
 
+    def options(self) -> Dict[str, Any]:
+        return {}
+
     def _dataset_nodes(
         self, dataset_node: delta.dataset.Dataset
     ) -> Tuple[GraphNode] | Tuple[GraphNode, GraphNode]:
@@ -566,6 +569,9 @@ class HorizontalLearning(HorizontalTask):
         return result_node
 
     def _build_graph(self) -> Tuple[List[delta.dataset.Dataset], List[GraphNode]]:
+        options = self.options()
+        weight = options.pop("weight", np.empty(0))
+
         dataset_node = self.dataset()
         dataset_node.name = "dataset"
         dataset_nodes = self._dataset_nodes(dataset_node)
@@ -578,7 +584,7 @@ class HorizontalLearning(HorizontalTask):
             name="iteration", location=DataLocation.CLIENT, default=1
         )
         weight_node = InputGraphNode(
-            name="weight_0", location=DataLocation.SERVER, default=np.empty(0)
+            name="weight_0", location=DataLocation.SERVER, default=weight
         )
         metrics_node = None
         inputs = [dataset_node, epoch_node, iteration_node, weight_node]
