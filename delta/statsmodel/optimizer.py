@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Callable, List, Dict, Tuple, Literal, Optional
 
 import numpy as np
@@ -13,6 +14,8 @@ from delta.core.task import (
     EarlyStop,
     InputGraphNode,
 )
+
+_logger = logging.getLogger(__name__)
 
 FloatArray = npt.NDArray[np.float_]
 IntArray = npt.NDArray[np.int_]
@@ -115,7 +118,14 @@ def newton_step(
             score = data["score"] / n
             hessian = data["hessian"] / n
 
-            if norm(score, ord=self.ord) < self.tol:
+            score_norm = norm(score, ord=self.ord)
+
+            _logger.debug(f"f: {f}")
+            _logger.debug(f"score: {score}")
+            _logger.debug(f"score norm: {score_norm}")
+            _logger.debug(f"hessian: {hessian}")
+
+            if score_norm < self.tol:
                 raise EarlyStop
 
             if not np.all(self.ridge_factor == 0):
