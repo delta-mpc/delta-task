@@ -588,12 +588,6 @@ class HorizontalLearning(HorizontalTask):
         dataset_nodes = self._dataset_nodes(dataset_node)
         dataloader_nodes = self._dataloader_nodes(*dataset_nodes)
 
-        epoch_node = InputGraphNode(
-            name="epoch", location=DataLocation.CLIENT, default=1
-        )
-        iteration_node = InputGraphNode(
-            name="iteration", location=DataLocation.CLIENT, default=1
-        )
         weight_node = InputGraphNode(
             name="weight_0", location=DataLocation.SERVER, default=weight
         )
@@ -601,7 +595,7 @@ class HorizontalLearning(HorizontalTask):
             name="local_state", location=DataLocation.CLIENT, default=self.local_state()
         )
         metrics_node = None
-        inputs = [dataset_node, epoch_node, iteration_node, weight_node]
+        inputs = [dataset_node, weight_node, local_state_node]
         for i in range(self.max_rounds):
             train_dataloader_node = dataloader_nodes[0]
             if len(dataloader_nodes) > 1:
