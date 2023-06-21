@@ -404,7 +404,7 @@ class HorizontalLearning(HorizontalTask):
                 self,
                 dataloader: DataLoader,
                 weight: np.ndarray,
-                local_state: Dict[str, Any]
+                local_state: Dict[str, Any] | None
             ) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
                 if len(weight) > 0:
                     self.learning.strategy.weight_to_params(
@@ -414,6 +414,8 @@ class HorizontalLearning(HorizontalTask):
                     weight = self.learning.strategy.params_to_weight(
                         self.learning.state_dict()
                     )
+                if local_state is None:
+                    local_state = self.learning.local_state()
                 _logger.info(f"Round {self.round} training")
                 epoch = local_state.pop("epoch", 1)
                 iteration = local_state.pop("iteration", 1)
@@ -592,7 +594,7 @@ class HorizontalLearning(HorizontalTask):
             name="weight_0", location=DataLocation.SERVER, default=weight
         )
         local_state_node = InputGraphNode(
-            name="local_state", location=DataLocation.CLIENT, default=self.local_state()
+            name="local_state", location=DataLocation.CLIENT, default=None
         )
         metrics_node = None
         inputs = [dataset_node, weight_node, local_state_node]
