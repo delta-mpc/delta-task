@@ -238,6 +238,12 @@ class HorizontalLearning(HorizontalTask):
     def options(self) -> Dict[str, Any]:
         return {}
 
+    def local_state(self) -> Dict[str, Any]:
+        return {}
+
+    def load_local_state(self, state: Dict[str, Any]):
+        pass
+
     def _dataset_nodes(
         self, dataset_node: delta.dataset.Dataset
     ) -> Tuple[GraphNode] | Tuple[GraphNode, GraphNode]:
@@ -363,15 +369,13 @@ class HorizontalLearning(HorizontalTask):
         self,
         train_dataloader_node: GraphNode,
         weight_node: GraphNode,
-        epoch_node: GraphNode,
-        iteration_node: GraphNode,
+        local_state_node: GraphNode,
         round: int,
     ) -> GraphNode:
         new_weight_node = GraphNode(
             name=f"weight_{round}", location=DataLocation.SERVER
         )
-        new_epoch_node = GraphNode(name="epoch", location=DataLocation.CLIENT)
-        new_iteration_node = GraphNode(name="iteration", location=DataLocation.CLIENT)
+        new_local_state_node = GraphNode(name="local_state", location=DataLocation.CLIENT)
 
         class _TrainOp(MapReduceOperator):
             def __init__(
@@ -400,9 +404,8 @@ class HorizontalLearning(HorizontalTask):
                 self,
                 dataloader: DataLoader,
                 weight: np.ndarray,
-                epoch: int,
-                iteration: int,
-            ) -> Tuple[Dict[str, np.ndarray], int, int]:
+                local_state: Dict[str, Any]
+            ) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
                 if len(weight) > 0:
                     self.learning.strategy.weight_to_params(
                         weight, self.learning.state_dict()
@@ -412,6 +415,9 @@ class HorizontalLearning(HorizontalTask):
                         self.learning.state_dict()
                     )
                 _logger.info(f"Round {self.round} training")
+                epoch = local_state.pop("epoch", 1)
+                iteration = local_state.pop("iteration", 1)
+                self.learning.load_local_state(local_state)
                 train_iter = TrainIterator(
                     dataloader, epoch, iteration, self.learning.strategy
                 )
@@ -419,7 +425,12 @@ class HorizontalLearning(HorizontalTask):
                 _logger.info(f"Round {self.round} training complete")
                 params = self.learning.state_dict()
                 res = self.learning.strategy.params_to_result(params, weight)
-                return {"res": res}, train_iter.epoch, train_iter.iteration
+                local_state = self.learning.local_state()
+                local_state.update({
+                    "epoch": train_iter.epoch,
+                    "iteration": train_iter.iteration
+                })
+                return {"res": res}, local_state
 
             def reduce(
                 self, data: Dict[str, np.ndarray], node_count: int, weight: np.ndarray
@@ -437,9 +448,9 @@ class HorizontalLearning(HorizontalTask):
 
         train_op = _TrainOp(
             name="train",
-            map_inputs=[train_dataloader_node, weight_node, epoch_node, iteration_node],
+            map_inputs=[train_dataloader_node, weight_node, local_state_node],
             reduce_inputs=[weight_node],
-            map_outputs=[new_epoch_node, new_iteration_node],
+            map_outputs=[new_local_state_node],
             reduce_outputs=[new_weight_node],
             learning=self,
             round=round,
@@ -586,6 +597,9 @@ class HorizontalLearning(HorizontalTask):
         weight_node = InputGraphNode(
             name="weight_0", location=DataLocation.SERVER, default=weight
         )
+        local_state_node = InputGraphNode(
+            name="local_state", location=DataLocation.CLIENT, default=self.local_state()
+        )
         metrics_node = None
         inputs = [dataset_node, epoch_node, iteration_node, weight_node]
         for i in range(self.max_rounds):
@@ -596,7 +610,7 @@ class HorizontalLearning(HorizontalTask):
                 val_dataloader_node = None
 
             weight_node = self._train_result_node(
-                train_dataloader_node, weight_node, epoch_node, iteration_node, i + 1
+                train_dataloader_node, weight_node, local_state_node, i + 1
             )
             if (
                 val_dataloader_node is not None
