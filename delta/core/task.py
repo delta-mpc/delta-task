@@ -331,6 +331,8 @@ class ClientContext(Context):
             if isinstance(res, tuple):
                 agg_result = res[0]
                 vars = res[1:]
+                if len(vars) == 1:
+                    vars = vars[0]
                 _set_outputs(self, op.map_outputs, vars)
             else:
                 agg_result = res
