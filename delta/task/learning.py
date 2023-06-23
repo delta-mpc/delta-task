@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import logging
+import random
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Type
 
 import delta.dataset
@@ -121,29 +122,25 @@ class TrainIterator(object):
         self.epoch = epoch
         self.iteration = iteration
         self.strategy = strategy
-        self.batch_sampler = None
 
     def __iter__(self):
         return self._get_iter()
 
-    def _make_dataloader(self) -> DataLoader:
-        if self.batch_sampler is None:
-            return self.dataloader
-        else:
-            return DataLoader(
-                dataset=self.dataloader.dataset,
-                batch_sampler=self.batch_sampler,
-                num_workers=self.dataloader.num_workers,
-                collate_fn=self.dataloader.collate_fn,
-                pin_memory=self.dataloader.pin_memory,
-                timeout=self.dataloader.timeout,
-                worker_init_fn=self.dataloader.worker_init_fn,
-                multiprocessing_context=self.dataloader.multiprocessing_context,
-                generator=self.dataloader.generator,
-                prefetch_factor=self.dataloader.prefetch_factor,
-                persistent_workers=self.dataloader.persistent_workers,
-                pin_memory_device=self.dataloader.pin_memory_device,
-            )
+    def _make_dataloader(self):
+        epoch_passed = self.epoch - 1
+        iteration_passed = self.iteration - 1
+
+        for _ in range(epoch_passed):
+            if self.dataloader.batch_sampler is not None:
+                indices = list(self.dataloader.batch_sampler)
+            else:
+                indices = list(self.dataloader.sampler)
+            iteration_passed -= len(indices)
+        
+        dataloader = iter(self.dataloader)
+        for _ in range(iteration_passed):
+            _ = next(dataloader)
+        return dataloader
 
     def _get_iter(self):
         finished = False
@@ -158,18 +155,13 @@ class TrainIterator(object):
                 _logger.info(f"Training epoch {self.epoch} iteration {self.iteration}")
 
                 yield batch
-                
+
                 count += 1
                 if self.strategy.should_merge(self.epoch, self.iteration, False):
                     _logger.info(f"iteration {self.iteration}, start to merge")
-                    assert dataloader.batch_sampler is not None
-                    if self.batch_sampler is None:
-                        self.batch_sampler = list(dataloader.batch_sampler)
-                    self.batch_sampler = self.batch_sampler[count:]
                     finished = True
                 self.iteration += 1
-            
-            self.batch_sampler = None
+
             if self.strategy.should_merge(self.epoch, self.iteration, True):
                 _logger.info(f"epoch {self.epoch}, start to merge")
                 finished = True
@@ -190,6 +182,31 @@ class ValidateIterator(object):
             _logger.info(f"Validation iteration {iteration}")
             yield batch
             iteration += 1
+
+
+def dump_rng_state() -> Dict[str, Any]:
+    rng_state = {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "cpu": torch.random.get_rng_state(),
+    }
+    if torch.cuda.is_available():
+        rng_state["cuda"] = torch.cuda.get_rng_state()
+    return rng_state
+
+
+def load_rng_state(rng_state: Dict[str, Any]):
+    random.setstate(rng_state["python"])
+    np.random.set_state(rng_state["numpy"])
+    torch.random.set_rng_state(rng_state["cpu"])
+    if torch.cuda.is_available():
+        try:
+            torch.cuda.random.set_rng_state(rng_state["cuda"])
+        except Exception as e:
+            _logger.info(
+                f"Didn't manage to set back the RNG states of the GPU because of the following error:\n {e}"
+                "\nThis won't yield the same results as if the training had not been interrupted."
+            )
 
 
 class HorizontalLearning(HorizontalTask):
@@ -375,7 +392,9 @@ class HorizontalLearning(HorizontalTask):
         new_weight_node = GraphNode(
             name=f"weight_{round}", location=DataLocation.SERVER
         )
-        new_local_state_node = GraphNode(name="local_state", location=DataLocation.CLIENT)
+        new_local_state_node = GraphNode(
+            name="local_state", location=DataLocation.CLIENT
+        )
 
         class _TrainOp(MapReduceOperator):
             def __init__(
@@ -404,7 +423,7 @@ class HorizontalLearning(HorizontalTask):
                 self,
                 dataloader: DataLoader,
                 weight: np.ndarray,
-                local_state: Dict[str, Any]
+                local_state: Dict[str, Any],
             ) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
                 if len(weight) > 0:
                     self.learning.strategy.weight_to_params(
@@ -419,6 +438,9 @@ class HorizontalLearning(HorizontalTask):
                 _logger.info(f"Round {self.round} training")
                 epoch = local_state.pop("epoch", 1)
                 iteration = local_state.pop("iteration", 1)
+                rng_state = local_state.pop("rng", None)
+                if rng_state is not None:
+                    load_rng_state(rng_state)
                 self.learning.load_local_state(local_state)
                 train_iter = TrainIterator(
                     dataloader, epoch, iteration, self.learning.strategy
@@ -428,10 +450,13 @@ class HorizontalLearning(HorizontalTask):
                 params = self.learning.state_dict()
                 res = self.learning.strategy.params_to_result(params, weight)
                 local_state = self.learning.local_state()
-                local_state.update({
-                    "epoch": train_iter.epoch,
-                    "iteration": train_iter.iteration
-                })
+                local_state.update(
+                    {
+                        "epoch": train_iter.epoch,
+                        "iteration": train_iter.iteration,
+                        "rng": dump_rng_state(),
+                    }
+                )
                 return {"res": res}, local_state
 
             def reduce(
