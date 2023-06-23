@@ -209,6 +209,13 @@ def load_rng_state(rng_state: Dict[str, Any]):
             )
 
 
+def params_norm(state_dict: Dict[str, torch.Tensor], norm_type: float = 2):
+    with torch.no_grad():
+        norms = [torch.norm(p, norm_type) for p in state_dict.values()]
+        norm = torch.norm(torch.stack(norms), norm_type)
+    return norm
+
+
 class HorizontalLearning(HorizontalTask):
     def __init__(
         self,
@@ -433,6 +440,9 @@ class HorizontalLearning(HorizontalTask):
                     weight = self.learning.strategy.params_to_weight(
                         self.learning.state_dict()
                     )
+                if _logger.level == logging.DEBUG:
+                    norm = params_norm(self.learning.state_dict())
+                    _logger.debug(f"input params norm: {norm}")
                 if len(local_state) == 0:
                     local_state = self.learning.local_state()
                 _logger.info(f"Round {self.round} training")
@@ -448,6 +458,9 @@ class HorizontalLearning(HorizontalTask):
                 self.learning.train(train_iter)
                 _logger.info(f"Round {self.round} training complete")
                 params = self.learning.state_dict()
+                if _logger.level == logging.DEBUG:
+                    norm = params_norm(params)
+                    _logger.debug(f"output params norm: {norm}")
                 res = self.learning.strategy.params_to_result(params, weight)
                 local_state = self.learning.local_state()
                 local_state.update(
