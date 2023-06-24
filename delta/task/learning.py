@@ -455,10 +455,12 @@ class HorizontalLearning(HorizontalTask):
                 else:
                     iteration = 1
                     local_state["iteration"] = 1
-                rng_state = local_state.get("rng", None)
-                if rng_state is not None:
-                    load_rng_state(rng_state)
-                self.learning.load_local_state(local_state)
+                if iteration > 1:
+                    # avoid loading state in the first round
+                    rng_state = local_state.get("rng", None)
+                    if rng_state is not None:
+                        load_rng_state(rng_state)
+                    self.learning.load_local_state(local_state)
                 train_iter = TrainIterator(
                     dataloader, epoch, iteration, self.learning.strategy
                 )
