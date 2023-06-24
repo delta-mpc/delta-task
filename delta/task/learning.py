@@ -445,8 +445,16 @@ class HorizontalLearning(HorizontalTask):
                 if len(local_state) == 0:
                     local_state = self.learning.local_state()
                 _logger.info(f"Round {self.round} training")
-                epoch = local_state.get("epoch", 1)
-                iteration = local_state.get("iteration", 1)
+                if "epoch" in local_state:
+                    epoch = local_state["epoch"]
+                else:
+                    epoch = 1
+                    local_state["epoch"] = 1
+                if "iteration" in local_state:
+                    iteration = local_state["iteration"]
+                else:
+                    iteration = 1
+                    local_state["iteration"] = 1
                 rng_state = local_state.get("rng", None)
                 if rng_state is not None:
                     load_rng_state(rng_state)
