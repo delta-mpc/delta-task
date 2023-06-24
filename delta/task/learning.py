@@ -440,8 +440,9 @@ class HorizontalLearning(HorizontalTask):
                     weight = self.learning.strategy.params_to_weight(
                         self.learning.state_dict()
                     )
-                norm = params_norm(self.learning.state_dict())
-                _logger.debug(f"input params norm: {norm}")
+                if logging.DEBUG <= _logger.getEffectiveLevel():
+                    norm = params_norm(self.learning.state_dict())
+                    _logger.debug(f"input params norm: {norm}")
                 if len(local_state) == 0:
                     local_state = self.learning.local_state()
                 _logger.info(f"Round {self.round} training")
@@ -467,15 +468,17 @@ class HorizontalLearning(HorizontalTask):
                 self.learning.train(train_iter)
                 _logger.info(f"Round {self.round} training complete")
                 params = self.learning.state_dict()
-                norm = params_norm(params)
-                _logger.debug(f"output params norm: {norm}")
+                if logging.DEBUG <= _logger.getEffectiveLevel():
+                    norm = params_norm(params)
+                    _logger.debug(f"output params norm: {norm}")
                 res = self.learning.strategy.params_to_result(params, weight)
-                if len(weight) > 0:
-                    diff = res - weight
-                else:
-                    diff = res
-                diff_norm = np.linalg.norm(diff, ord=2)
-                _logger.debug(f"diff norm: {diff_norm}")
+                if logging.DEBUG <= _logger.getEffectiveLevel():
+                    if len(weight) > 0:
+                        diff = res - weight
+                    else:
+                        diff = res
+                    diff_norm = np.linalg.norm(diff, ord=2)
+                    _logger.debug(f"diff norm: {diff_norm}")
                 local_state = self.learning.local_state()
                 local_state.update(
                     {
