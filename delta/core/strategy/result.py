@@ -37,18 +37,19 @@ class WeightResultStrategy(ResultStrategy):
 
     def weight_to_params(self, weight: np.ndarray, params: Dict[str, torch.Tensor]):
         offset = 0
-        with torch.no_grad():
-            for p in params.values():
-                numel = p.numel()
-                weight_slice = weight[offset : offset + numel]
-                offset += numel
-                weight_tensor = (
-                    torch.from_numpy(weight_slice)
-                    .to(p.dtype)
-                    .to(p.device)
-                    .resize_(p.shape)
-                )
-                p.copy_(weight_tensor)
+        if len(weight) > 0:
+            with torch.no_grad():
+                for p in params.values():
+                    numel = p.numel()
+                    weight_slice = weight[offset : offset + numel]
+                    offset += numel
+                    weight_tensor = (
+                        torch.from_numpy(weight_slice)
+                        .to(p.dtype)
+                        .to(p.device)
+                        .resize_(p.shape)
+                    )
+                    p.copy_(weight_tensor)
 
     def params_to_result(self, params: Dict[str, torch.Tensor], last_weight: np.ndarray) -> np.ndarray:
         return self.params_to_weight(params)
