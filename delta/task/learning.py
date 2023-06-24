@@ -460,6 +460,12 @@ class HorizontalLearning(HorizontalTask):
                 norm = params_norm(params)
                 _logger.debug(f"output params norm: {norm}")
                 res = self.learning.strategy.params_to_result(params, weight)
+                if len(weight) > 0:
+                    diff = res - weight
+                else:
+                    diff = res
+                diff_norm = np.linalg.norm(diff, ord=2)
+                _logger.debug(f"diff norm: {diff_norm}")
                 local_state = self.learning.local_state()
                 local_state.update(
                     {
@@ -480,12 +486,6 @@ class HorizontalLearning(HorizontalTask):
                     self.learning.strategy.weight_to_params(weight, params)
                     self.learning.strategy.result_to_params(res, params)
                     new_weight = self.learning.strategy.params_to_weight(params)
-                    if len(weight) > 0:
-                        diff = new_weight - weight
-                    else:
-                        diff = new_weight
-                    diff_norm = np.linalg.norm(diff, ord=2)
-                    _logger.debug(f"diff norm: {diff_norm}")
                     return new_weight
                 else:
                     raise ValueError("aggregate result missing key 'res'")

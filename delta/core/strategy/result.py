@@ -31,7 +31,7 @@ class ResultStrategy(ABC):
 
 class WeightResultStrategy(ResultStrategy):
     def params_to_weight(self, params: Dict[str, torch.Tensor]) -> np.ndarray:
-        arrs = [p.detach().cpu().ravel().numpy() for p in params.values()]
+        arrs = [p.detach().cpu().ravel().numpy(force=True) for p in params.values()]
         result = np.concatenate(arrs, axis=0)
         return result
 
